@@ -1,5 +1,6 @@
 package com.sparql_to_aql;
 
+import com.sparql_to_aql.database.ArangoDbClient;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.jena.base.Sys;
@@ -62,10 +63,15 @@ public class Main {
 
             System.out.println("initial validation and optimization of algebra");
             //TODO
+            //op = Algebra.optimize(op);
             //OpWalker.walk(op, new SparqlOptimizationVisitor());
 
             //TODO possibly use below tutorial for visitor pattern to translate algebra tree
             //https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P
+
+            System.out.println("execute generated AQL query on ArangoDb");
+            //TODO refer to https://www.arangodb.com/tutorials/tutorial-sync-java-driver/
+            //new ArangoDbClient().execQuery(dbname_here, query_here);
         }
         catch(IOException e){
             System.out.println("File not found.");

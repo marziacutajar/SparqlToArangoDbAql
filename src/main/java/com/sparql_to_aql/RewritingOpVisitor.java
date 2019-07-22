@@ -5,10 +5,22 @@ package com.sparql_to_aql;
 //more AQL specific (by creating custom Op and sub operators for AQL), or whether we will
 //translate the SPARQL algebra expressions directly to an AQL query (would be hard to re-optimise such a query though..)
 
+import com.sparql_to_aql.entities.aql.algebra.AqlOp;
+import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.op.*;
 
 //TODO If rewriting to the actual AQL query, use StringBuilder (refer to https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P)
 public class RewritingOpVisitor extends RewritingOpVisitorBase {
+
+    //TODO build Aql query expression tree using below if we're gonna have seperate AQL algebra structure
+    private AqlOp _aqlAlgebraQueryExpression;
+
+    //This method is to be called after the visitor has been used
+    public AqlOp GetAqlAlgebraQueryExpression()
+    {
+        return _aqlAlgebraQueryExpression;
+    }
+
     @Override
     public void visit(OpBGP opBpg){
     }

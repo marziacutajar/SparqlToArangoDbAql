@@ -1,18 +1,11 @@
+.gradle
+/build/
+!gradle/wrapper/gradle-wrapper.jar
+!lib/*.jar
 
-*.xml
-
-*.lock
-
-\.gradle/4\.9/fileChanges/last-build\.bin
-
-\.gradle/4\.9/fileHashes/fileHashes\.bin
-
-\.gradle/4\.9/taskHistory/taskHistory\.bin
-
-\.gradle/buildOutputCleanup/cache\.properties
-
-\.gradle/buildOutputCleanup/outputFiles\.bin
-
-\.gradle/vcsWorkingDirs/gc\.properties
-
-test_sparql_query\.txt
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+/out/

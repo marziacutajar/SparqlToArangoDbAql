@@ -2,25 +2,16 @@ package com.sparql_to_aql;
 
 import com.sparql_to_aql.database.ArangoDbClient;
 import org.apache.commons.cli.*;
-import org.apache.commons.io.FileUtils;
-import org.apache.jena.base.Sys;
 import org.apache.jena.query.*;
-import org.apache.jena.rdf.model.*;
-import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.OpWalker;
+import org.apache.jena.sparql.algebra.Transformer;
+import org.apache.jena.sparql.algebra.optimize.TransformTopN;
 import org.apache.jena.sparql.sse.SSE;
-
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Iterator;
 
 public class Main {
 
@@ -65,6 +56,9 @@ public class Main {
             //TODO
             //op = Algebra.optimize(op);
             //OpWalker.walk(op, new SparqlOptimizationVisitor());
+
+            //op = Transformer.transform(new TransformTopN(), op);
+            OpWalker.walk(op, new RewritingOpVisitor());
 
             //TODO possibly use below tutorial for visitor pattern to translate algebra tree
             //https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P

@@ -6,8 +6,12 @@ package com.sparql_to_aql;
 //translate the SPARQL algebra expressions directly to an AQL query (would be hard to re-optimise such a query though..)
 
 import com.sparql_to_aql.entities.aql.algebra.AqlOp;
-import org.apache.jena.sparql.algebra.Op;
+import org.apache.jena.query.SortCondition;
 import org.apache.jena.sparql.algebra.op.*;
+import org.apache.jena.sparql.expr.Expr;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 //TODO If rewriting to the actual AQL query, use StringBuilder (refer to https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P)
 public class RewritingOpVisitor extends RewritingOpVisitorBase {
@@ -63,10 +67,24 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpProject opProject){
+        String delimitedVariables = opProject.getVars().stream().map(v -> v.getVarName())
+                .collect( Collectors.joining( ", " ) );
+        System.out.println("RETURN " + delimitedVariables);
     }
 
     @Override
-    public void visit(OpOrder opOrder){
+    public void visit(OpOrder opOrder) {
+        List<SortCondition> sortConditionList = opOrder.getConditions();
+        String[] conds = new String[sortConditionList.size()];
+
+        for (int i= 0; i < sortConditionList.size(); i++) {
+            SortCondition currCond = sortConditionList.get(i);
+            //direction = 1 if ASC, -1 if DESC, -2 if unspecified (default asc)
+            String direction = currCond.getDirection() == -1 ? "DESC" : "ASC";
+            conds[i] = currCond.getExpression() + " " + direction;
+        }
+
+        System.out.println("SORT " + String.join(", ", conds));
     }
 
     @Override
@@ -74,15 +92,30 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     }
 
     @Override
-    public void visit(OpReduced opReduced){
-    }
-
-    @Override
     public void visit(OpSlice opSlice){
+        Long offset = opSlice.getStart();
+        Long limit = opSlice.getLength();
+
+        if(offset < 1){
+            System.out.println("LIMIT " + limit);
+            return;
+        }
+
+        System.out.println("LIMIT " + offset + ", " + limit);
     }
 
     @Override
     public void visit(OpTopN opTopN){
+        //TODO this is only present if we use TransformTopN optimizer to change from OpSlice to OpTopN..
+        //This operator contains limit + order by for better performance
+        //https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/algebra/op/OpTopN.html
+
+        for(SortCondition cond : opTopN.getConditions()){
+            int direction = cond.getDirection();
+            Expr expr = cond.getExpression();
+            //TODO use above
+        }
+        System.out.println("LIMIT " + opTopN.getLimit());
     }
 
     //TODO decide whether to add visit methods for OpList, OpPath and others.. or whether they'll be unsupported

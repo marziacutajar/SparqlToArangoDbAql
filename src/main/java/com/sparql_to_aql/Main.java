@@ -45,7 +45,6 @@ public class Main {
             query.getGraphURIs().forEach(f-> System.out.println(f)); //get all FROM uris (forming default graph)
 
             System.out.println("generating algebra");
-
             Op op = Algebra.compile(query);
 
             System.out.println("writing algebra");
@@ -58,6 +57,7 @@ public class Main {
             //OpWalker.walk(op, new SparqlOptimizationVisitor());
 
             //op = Transformer.transform(new TransformTopN(), op);
+            //op = Algebra.toQuadForm(op);
             OpWalker.walk(op, new RewritingOpVisitor());
 
             //TODO possibly use below tutorial for visitor pattern to translate algebra tree

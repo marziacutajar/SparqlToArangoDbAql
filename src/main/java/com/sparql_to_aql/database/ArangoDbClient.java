@@ -4,11 +4,12 @@ import com.arangodb.ArangoCursor;
 import com.arangodb.ArangoDB;
 import com.arangodb.ArangoDBException;
 import com.arangodb.entity.BaseDocument;
+import com.arangodb.internal.ArangoDefaults;
+import com.arangodb.model.AqlQueryOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ArangoDbClient {
-
     //logger for logging exceptions
     //private static Logger logger = LoggerFactory.getLogger(ArangoDbClient.class);
 

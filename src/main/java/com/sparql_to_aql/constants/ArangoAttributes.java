@@ -1,4 +1,4 @@
-package com.rdfarango.constants;
+package com.sparql_to_aql.constants;
 
 public class ArangoAttributes {
     public static final String KEY = "_key";

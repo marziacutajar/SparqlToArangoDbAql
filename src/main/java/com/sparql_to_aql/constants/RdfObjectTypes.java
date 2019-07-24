@@ -1,4 +1,4 @@
-package com.rdfarango.constants;
+package com.sparql_to_aql.constants;
 
 public class RdfObjectTypes {
     public static final String LITERAL = "LITERAL";

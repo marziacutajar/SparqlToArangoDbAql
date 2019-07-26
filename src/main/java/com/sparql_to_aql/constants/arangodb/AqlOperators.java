@@ -12,4 +12,6 @@ public class AqlOperators {
     public static final String LIKE = "LIKE";
     public static final String REG_EXP_MATCH = "=~";
     public static final String REG_EXP_NO_MATCH = "!~";
+    public static final String AND = "&&";
+    public static final String OR = "||";
 }

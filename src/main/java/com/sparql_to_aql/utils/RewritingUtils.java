@@ -4,7 +4,11 @@ import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.constants.arangodb.AqlOperators;
 import org.apache.jena.base.Sys;
 import org.apache.jena.graph.Node;
+import org.apache.jena.sparql.algebra.Table;
+import org.apache.jena.sparql.core.Var;
+import org.apache.jena.sparql.engine.binding.Binding;
 
+import java.util.Iterator;
 import java.util.List;
 
 public class RewritingUtils {
@@ -52,5 +56,28 @@ public class RewritingUtils {
                 throw new UnsupportedOperationException();
         }
     }
+
+    public static void ProcessBindingsTable(Table table){
+        List<Var> vars = table.getVars();
+        for (Iterator<Binding> i = table.rows(); i.hasNext();){
+            ProcessBinding(i.next(), vars);
+            if(i.hasNext())
+                System.out.println(" " + AqlOperators.OR + " ");
+        }
+
+    }
+
+    public static void ProcessBinding(Binding binding, List<Var> vars){
+        //TODO below consider whether the binding is to a literal or uri..
+        System.out.print("(");
+        for(Var var : vars){
+            System.out.print(var.getVarName() + " " + AqlOperators.EQUALS + " " + binding.get(var).toString());
+            if(vars.get(vars.size() -1 ) != var){
+                System.out.print(" " + AqlOperators.AND + " ");
+            }
+        }
+        System.out.println(")");
+    }
+
 
 }

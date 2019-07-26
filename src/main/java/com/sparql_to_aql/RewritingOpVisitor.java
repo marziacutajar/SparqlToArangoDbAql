@@ -9,10 +9,14 @@ import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.entities.aql.algebra.AqlOp;
 import com.sparql_to_aql.utils.RewritingUtils;
+import org.apache.jena.base.Sys;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.SortCondition;
+import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.algebra.op.*;
+import org.apache.jena.sparql.core.Var;
+import org.apache.jena.sparql.core.VarExprList;
 import org.apache.jena.sparql.expr.Expr;
 
 import java.util.ArrayList;
@@ -42,7 +46,6 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpBGP opBpg){
-        System.out.println("Entering opBgp");
         for(Triple triple : opBpg.getPattern().getList()){
             //TODO possibly copy below logic to visit(OpTriple) and then call that method in here..
             List<String> usedVars = new ArrayList<>();
@@ -79,10 +82,20 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpLeftJoin opLeftJoin){
+        //TODO take array results of left and right subqueries
+        //add a filter on the right side results to make sure common variables match to those on the left,
+        //opLeftJoin.getExprs();
+        System.out.println("FOR x IN left_results");
+        System.out.println("LET filtered_right_side = (FOR y IN right_results FILTER common_filter_expr_here RETURN y)");
+        System.out.println("FOR right_result_to_join IN (LENGTH(filtered_right_side) > 0 ? filtered_right_side : [{}])");
+        System.out.println("RETURN { left: x, right: right_result_to_join}");
     }
 
     @Override
     public void visit(OpMinus opMinus){
+        //call MINUS function on left an right sides, assign to a variable using LET
+        //TODO what if there are variables on the righthand side not on the left side.. how to handle this?
+        System.out.println("LET minus_results = MINUS(left_side_results_array, right_side_results_array)");
     }
 
     @Override
@@ -93,17 +106,29 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpExtend opExtend){
-        opExtend.getVarExprList();
-        //TODO loop over each var in the list and for each of them create clause LET varName = value of expr for var
+        List<String> extendExpressions = new ArrayList<>();
+        VarExprList varExprList = opExtend.getVarExprList();
+        //TODO process expressions..
+        varExprList.forEachVarExpr((v,e) -> extendExpressions.add("LET " + v.getVarName() + " = expr_result_here"));
     }
 
     @Override
     public void visit(OpUnion opUnion){
+        //TODO get the subquery for the left and right of the union
+        System.out.print("LET unionResult = UNION(left_result_here, right_result_here)");
     }
 
     @Override
     public void visit(OpGraph opGraph){
-    }
+        //TODO Add extra filter condition to list of filter clauses when we have one..
+        Node graphNode = opGraph.getNode();
+        if(graphNode.isVariable()){
+            //else here bind the variable.. maybe we can call Visit(OpExtend) here by replacing it?
+        }
+        else if(graphNode.isURI()){
+            System.out.println("FILTER item_name_here.g = " + graphNode.getURI());
+        }
+     }
 
     @Override
     public void visit(OpProject opProject){
@@ -115,20 +140,30 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpOrder opOrder) {
         List<SortCondition> sortConditionList = opOrder.getConditions();
-        String[] conds = new String[sortConditionList.size()];
+        String[] conditions = new String[sortConditionList.size()];
 
         for (int i= 0; i < sortConditionList.size(); i++) {
             SortCondition currCond = sortConditionList.get(i);
             //direction = 1 if ASC, -1 if DESC, -2 if unspecified (default asc)
             String direction = currCond.getDirection() == -1 ? "DESC" : "ASC";
-            conds[i] = currCond.getExpression() + " " + direction;
+            conditions[i] = currCond.getExpression() + " " + direction;
         }
 
-        System.out.println("SORT " + String.join(", ", conds));
+        System.out.println("SORT " + String.join(", ", conditions));
     }
 
     @Override
     public void visit(OpDistinct opDistinct){
+        //TODO either somehow combine this with OpProject so we can use RETURN DISTINCT
+        //or if we have more than one distinct variable we need to use COLLECT
+        if(opDistinct.getSubOp() instanceof OpProject){
+            OpProject projectNode = (OpProject) opDistinct.getSubOp();
+            if(projectNode.getVars().size() == 1){
+                //TODO add distinct to return statment
+            }
+        }
+        //one option is to keep a list of projected variables in this class, check if the num of vars is 1, in which case
+        //use RETURN DISTINCT, else introduce COLLECT statement
     }
 
     @Override
@@ -156,6 +191,11 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
             //TODO use above
         }
         System.out.println("LIMIT " + opTopN.getLimit());
+    }
+
+    public void visit(OpTable opTable){
+        //TODO I think we need to add a filter clause such as (?var1 = val_1 && ?var2 = val_2) || (?var1 = val_3 && ?var2 = val_3) etc...
+        RewritingUtils.ProcessBindingsTable(opTable.getTable());
     }
 
     //TODO decide whether to add visit methods for OpList, OpPath and others.. or whether they'll be unsupported

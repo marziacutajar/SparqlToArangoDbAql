@@ -53,10 +53,9 @@ public class Main {
             SSE.write(op);
 
             System.out.println("initial validation and optimization of algebra");
-            //TODO
+            //TODO call any optimization transformers on the algebra tree
+            //TODO consider performing an initial walk over the tree to immediately notify the user if it contains unsupported ops.
             //op = Algebra.optimize(op);
-            //OpWalker.walk(op, new SparqlOptimizationVisitor());
-
             //op = Transformer.transform(new TransformTopN(), op);
             //op = Algebra.toQuadForm(op);
             op = Transformer.transform(new OpDistinctTransformer(), op);

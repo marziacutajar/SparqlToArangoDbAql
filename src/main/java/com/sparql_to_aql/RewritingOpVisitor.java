@@ -4,7 +4,6 @@ package com.sparql_to_aql;
 //TODO decide whether we will "rewrite" the expression to use algebra operators that are
 //more AQL specific (by creating custom Op and sub operators for AQL), or whether we will
 //translate the SPARQL algebra expressions directly to an AQL query (would be hard to re-optimise such a query though..)
-
 //TODO consider creating a new OpAssign operator for representing LET statement in AQL.. would be helpful when joining etc..
 //TODO also consider creating a new OpCollect operator
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
@@ -26,7 +25,7 @@ import org.apache.jena.sparql.sse.SSE;
 import java.util.*;
 import java.util.stream.Collectors;
 
-//TODO If rewriting to the actual AQL query, use StringBuilder (refer to https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P)
+//TODO If rewriting to the actual AQL query, maybe use StringBuilder (refer to https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P)
 public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     //TODO build Aql query expression tree using below if we're gonna have seperate AQL algebra structure
@@ -45,7 +44,8 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpBGP opBpg){
         for(Triple triple : opBpg.getPattern().getList()){
-            //TODO possibly copy below logic to visit(OpTriple) and then call that method in here..
+            //TODO consider moving this logic to a ProcessTriple method in RewritingOpVisitor
+            //TODO below vars should be private global in this class for use in other visitor methods somehow
             List<String> usedVars = new ArrayList<>();
             List<String> filterConditions = new ArrayList<>();
             forLoopCounter++;
@@ -57,16 +57,20 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
             RewritingUtils.ProcessTripleNode(triple.getSubject(), NodeRole.SUBJECT, forloopvarname, usedVars, filterConditions);
             RewritingUtils.ProcessTripleNode(triple.getPredicate(), NodeRole.PREDICATE, forloopvarname, usedVars, filterConditions);
             RewritingUtils.ProcessTripleNode(triple.getObject(), NodeRole.OBJECT, forloopvarname, usedVars, filterConditions);
-            //TODO create AQL subqueries? not sure if this is needed here or in visit(OpTriple)
+            //TODO create AQL subqueries?
             usedVariablesByForLoopItem.put(forloopvarname, usedVars);
         }
     }
 
+    //TODO consider the possibility of transforming all OpTriple instances to OpBgp so we can avoid repeating code and remove this visitor method
     @Override
     public void visit(OpTriple opTriple){
+        Triple triple = opTriple.getTriple();
+        //TODO call ProcessTriple method in RewritingUtils once created?
         System.out.println("TRIPLE HERE");
     }
 
+    //TODO decide whether to keep this method at all..
     @Override
     public void visit(OpQuad opQuad){
     }
@@ -109,12 +113,7 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
         //TODO iterate over expressions, add filter conditions in AQL format to some List<String> for concatenating later
         System.out.print("FILTER ");
         for(Iterator<Expr> i = opFilter.getExprs().iterator(); i.hasNext();){
-            Expr expr = i.next();
-            ExprFunction expfun = expr.getFunction();
-            //get operator TODO translate it to equivalent AQL operator.. need a switch here or something
-            expfun.getOpName(); 
-            expfun.ge
-            //TODO not sure how to evaluate expression....
+            RewritingUtils.ProcessExpr(i.next());
         }
     }
 
@@ -193,12 +192,11 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     /*@Override
     public void visit(OpDistinct opDistinct){
-        //TODO either somehow combine this with OpProject so we can use RETURN DISTINCT
         //or if we have more than one distinct variable we need to use COLLECT
         if(opDistinct.getSubOp() instanceof OpProject){
             OpProject projectNode = (OpProject) opDistinct.getSubOp();
             if(projectNode.getVars().size() == 1){
-                //TODO add distinct to return statement
+                //add distinct to return statement
             }
         }
         //one option is to keep a list of projected variables in this class, check if the num of vars is 1, in which case
@@ -230,7 +228,7 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpTopN opTopN){
-        //TODO this is only present if we use TransformTopN optimizer to change from OpSlice to OpTopN..
+        //this operator is only present if we use TransformTopN optimizer to change from OpSlice to OpTopN..
         //This operator contains limit + order by for better performance
         //https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/algebra/op/OpTopN.html
 

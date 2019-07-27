@@ -13,9 +13,8 @@ public class ArangoDbClient {
     //logger for logging exceptions
     //private static Logger logger = LoggerFactory.getLogger(ArangoDbClient.class);
 
-    //TODO actually make it singleton..
-    /** ArangoDB connection, singleton. */
-    private static ArangoDB arangoDbConnection;
+    /** ArangoDB connection */
+    private ArangoDB arangoDbConnection;
 
     public ArangoDbClient(){
         arangoDbConnection = new ArangoDB.Builder().build();
@@ -27,7 +26,7 @@ public class ArangoDbClient {
                     BaseDocument.class);
         //}
         //catch (final ArangoDBException e){
-        //    //TODO throw custom exception or something??
+        //    //TODO log exception and throw custom exception or something??
         //}
     }
 }

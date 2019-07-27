@@ -8,6 +8,7 @@ import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.expr.Expr;
+import org.apache.jena.sparql.expr.ExprFunction;
 
 import java.util.Iterator;
 import java.util.List;
@@ -94,7 +95,14 @@ public class RewritingUtils {
     }
 
     public static String ProcessExpr(Expr expr){
-        //TODO return the expression in string form and in the form executable in ArangoDB
+        String aqlExpr = "";
+        //TODO not sure how to evaluate expression.... return the expression in string form and in the form executable in ArangoDB
+        ExprFunction expfun = expr.getFunction();
+        //get operator TODO translate it to equivalent AQL operator.. need a switch here or something.. or a Map mapping ARQ ops to AQL ops
+        expfun.getOpName();
+        //TODO arguments can also be expressions... must loop and process them recursively
+        expfun.getArgs();
+
         return expr.toString();
     }
 

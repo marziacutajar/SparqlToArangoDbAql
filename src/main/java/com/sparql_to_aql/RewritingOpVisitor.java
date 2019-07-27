@@ -5,24 +5,25 @@ package com.sparql_to_aql;
 //more AQL specific (by creating custom Op and sub operators for AQL), or whether we will
 //translate the SPARQL algebra expressions directly to an AQL query (would be hard to re-optimise such a query though..)
 
+//TODO consider creating a new OpAssign operator for representing LET statement in AQL.. would be helpful when joining etc..
+//TODO also consider creating a new OpCollect operator
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.NodeRole;
-import com.sparql_to_aql.entities.aql.algebra.AqlOp;
+import com.sparql_to_aql.entities.algebra.OpDistinctProject;
+import com.sparql_to_aql.entities.algebra.aql.AqlOp;
+import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
 import com.sparql_to_aql.utils.RewritingUtils;
-import org.apache.jena.base.Sys;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.SortCondition;
-import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.algebra.op.*;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.core.VarExprList;
 import org.apache.jena.sparql.expr.Expr;
+import org.apache.jena.sparql.expr.ExprFunction;
+import org.apache.jena.sparql.sse.SSE;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 //TODO If rewriting to the actual AQL query, use StringBuilder (refer to https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P)
@@ -40,9 +41,6 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     private int forLoopCounter = 0;
     //Keep track if which variables have already been bound in outer for loops
     private static Map<String, List<String>> usedVariablesByForLoopItem = new HashMap<>();
-
-    //TODO used for keeping record of created and used for loop vars
-    //private List<String> forLoopVars = new ArrayList<>();
 
     @Override
     public void visit(OpBGP opBpg){
@@ -77,7 +75,11 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     public void visit(OpJoin opJoin){
         System.out.println("Entering join");
         //TODO Here we'll need to use some current list of common variables between the resulting "bgps" that must be joined
-        //and create a FILTER statement with them
+        //OR use ATTRIBUTES function in AQL over both of them to join on the common attrs found
+        //and create a FILTER statement with them and then merge variables in both
+        //TODO check if the left or right side is a table, in which case we need to cater for that..
+        //System.out.println("FILTER left_side.var = right_side.var");
+        //System.out.println("RETURN { var1 = left_side.var1, var2 = leftside.var2, var3 = rightside.var3}");
     }
 
     @Override
@@ -93,23 +95,34 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpMinus opMinus){
-        //call MINUS function on left an right sides, assign to a variable using LET
+        //call MINUS function on left and right sides, assign to a variable using LET
         //TODO what if there are variables on the righthand side not on the left side.. how to handle this?
+        //if there are no shared variables, do nothing (no matching bindings)
+        //IMPORTANT: In MINUS operator we only consider variable bindings ex. if we have MINUS(<http://a> <http://b> <http://c>) and this triple is
+        //in the results of the lefthand side, that triple won't be removed because there are no bindings
+        //there must be at least one common variable between left and right side
         System.out.println("LET minus_results = MINUS(left_side_results_array, right_side_results_array)");
     }
 
     @Override
     public void visit(OpFilter opFilter){
-        opFilter.getExprs();
         //TODO iterate over expressions, add filter conditions in AQL format to some List<String> for concatenating later
+        System.out.print("FILTER ");
+        for(Iterator<Expr> i = opFilter.getExprs().iterator(); i.hasNext();){
+            Expr expr = i.next();
+            ExprFunction expfun = expr.getFunction();
+            //get operator TODO translate it to equivalent AQL operator.. need a switch here or something
+            expfun.getOpName(); 
+            expfun.ge
+            //TODO not sure how to evaluate expression....
+        }
     }
 
     @Override
     public void visit(OpExtend opExtend){
         List<String> extendExpressions = new ArrayList<>();
         VarExprList varExprList = opExtend.getVarExprList();
-        //TODO process expressions..
-        varExprList.forEachVarExpr((v,e) -> extendExpressions.add("LET " + v.getVarName() + " = expr_result_here"));
+        varExprList.forEachVarExpr((v,e) -> extendExpressions.add("LET " + v.getVarName() + " = " + RewritingUtils.ProcessExpr(e)));
     }
 
     @Override
@@ -123,7 +136,9 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
         //TODO Add extra filter condition to list of filter clauses when we have one..
         Node graphNode = opGraph.getNode();
         if(graphNode.isVariable()){
-            //else here bind the variable.. maybe we can call Visit(OpExtend) here by replacing it?
+            String forloopvarname = "forloop" + forLoopCounter + "item";
+            //else here bind the variable.. maybe we can call Visit(OpExtend) instead here by replacing it?
+            System.out.println("LET " + graphNode.getName() + " = " + forloopvarname + ".g");
         }
         else if(graphNode.isURI()){
             System.out.println("FILTER item_name_here.g = " + graphNode.getURI());
@@ -132,9 +147,33 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpProject opProject){
-        String delimitedVariables = opProject.getVars().stream().map(v -> v.getVarName())
-                .collect( Collectors.joining( ", " ) );
-        System.out.println("RETURN " + delimitedVariables);
+        String collectStmt = "";
+        String returnStatement = "RETURN ";
+        List<Var> projectableVars = opProject.getVars();
+
+        if(opProject instanceof OpDistinctProject){
+            if(projectableVars.size() == 1){
+                returnStatement += "DISTINCT ";
+            }
+            else{
+                //TODO if there's a sort clause in the expression, this will have to come between the return and collect statements
+                //SELECT DISTINCT WITH >1 VAR = COLLECT in AQL... TODO mention this in thesis writeup in AQL algebra??
+                collectStmt = "COLLECT ";
+                for(Var v: projectableVars){
+                    //Add each var to collect clause
+                    //TODO remember that when assigning it we have to use for loop over the query results and use the forloop item name
+                    collectStmt += v.getVarName() + " = " + v.getVarName();
+                    if(projectableVars.get(projectableVars.size()-1) != v)
+                        collectStmt += ", ";
+                }
+                collectStmt += "\n";
+            }
+        }
+
+        String delimitedVariables = projectableVars.stream().map(v -> v.getVarName())
+                .collect(Collectors.joining( ", " ));
+        returnStatement += delimitedVariables;
+        System.out.println(collectStmt + returnStatement);
     }
 
     @Override
@@ -152,18 +191,28 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
         System.out.println("SORT " + String.join(", ", conditions));
     }
 
-    @Override
+    /*@Override
     public void visit(OpDistinct opDistinct){
         //TODO either somehow combine this with OpProject so we can use RETURN DISTINCT
         //or if we have more than one distinct variable we need to use COLLECT
         if(opDistinct.getSubOp() instanceof OpProject){
             OpProject projectNode = (OpProject) opDistinct.getSubOp();
             if(projectNode.getVars().size() == 1){
-                //TODO add distinct to return statment
+                //TODO add distinct to return statement
             }
         }
         //one option is to keep a list of projected variables in this class, check if the num of vars is 1, in which case
         //use RETURN DISTINCT, else introduce COLLECT statement
+    }*/
+
+    //New visit method for my custom OpDistinctProject class
+    /*public void visit(OpDistinctProject opDistinctProject){
+        System.out
+    }*/
+
+    @Override
+    public void visit(OpGroup opGroup){
+        //TODO group, and consider mathematical expressions
     }
 
     @Override
@@ -195,6 +244,7 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     public void visit(OpTable opTable){
         //TODO I think we need to add a filter clause such as (?var1 = val_1 && ?var2 = val_2) || (?var1 = val_3 && ?var2 = val_3) etc...
+        //If we have a join to a table.. we could skip processing this operator and process it in the join.. might be more efficient actually then having to process it at both points
         RewritingUtils.ProcessBindingsTable(opTable.getTable());
     }
 

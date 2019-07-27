@@ -7,9 +7,11 @@ import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.engine.binding.Binding;
+import org.apache.jena.sparql.expr.Expr;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class RewritingUtils {
     public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, List<String> usedVars, List<String> filterConditions){
@@ -58,26 +60,42 @@ public class RewritingUtils {
     }
 
     public static void ProcessBindingsTable(Table table){
+        //TODO the FILTER commands should be added if there is a JOIN clause between a Bindings table and some other op..
+        //thus the functionality below should be changed to represent the Table in Arango (ex. array of objects with the bound vars..)
+        String bindingsInAql = "LET bindings = [";
         List<Var> vars = table.getVars();
         for (Iterator<Binding> i = table.rows(); i.hasNext();){
-            ProcessBinding(i.next(), vars);
-            if(i.hasNext())
-                System.out.println(" " + AqlOperators.OR + " ");
-        }
-
-    }
-
-    public static void ProcessBinding(Binding binding, List<Var> vars){
-        //TODO below consider whether the binding is to a literal or uri..
-        System.out.print("(");
-        for(Var var : vars){
-            System.out.print(var.getVarName() + " " + AqlOperators.EQUALS + " " + binding.get(var).toString());
-            if(vars.get(vars.size() -1 ) != var){
-                System.out.print(" " + AqlOperators.AND + " ");
+            bindingsInAql += ProcessBinding(i.next(), vars);
+            if(i.hasNext()){
+                bindingsInAql += ",";
+                //System.out.println(" " + AqlOperators.OR + " ");
             }
         }
-        System.out.println(")");
+        bindingsInAql += "]";
+        System.out.println(bindingsInAql);
     }
 
+    public static String ProcessBinding(Binding binding, List<Var> vars){
+        //TODO below consider whether the binding is to a literal, uri, or UNDEF.. if literal what data type it has, etc...
+        // a variable can be bound to an undefined value (ie. it can be any value..)
+        String jsonObject = "{";
+        //System.out.print("(");
+        for(Var var : vars){
+            jsonObject += "\"" + var.getVarName() + "\" : " + binding.get(var).toString();
+            //System.out.print(var.getVarName() + " " + AqlOperators.EQUALS + " " + binding.get(var).toString());
+            if(vars.get(vars.size() -1 ) != var){
+                //System.out.print(" " + AqlOperators.AND + " ");
+                jsonObject += ",";
+            }
+        }
+        jsonObject += "}";
+        return jsonObject;
+        //System.out.println(")");
+    }
+
+    public static String ProcessExpr(Expr expr){
+        //TODO return the expression in string form and in the form executable in ArangoDB
+        return expr.toString();
+    }
 
 }

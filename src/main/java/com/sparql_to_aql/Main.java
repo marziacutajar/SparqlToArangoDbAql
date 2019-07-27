@@ -1,6 +1,7 @@
 package com.sparql_to_aql;
 
 import com.sparql_to_aql.database.ArangoDbClient;
+import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
 import org.apache.commons.cli.*;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.Algebra;
@@ -58,6 +59,8 @@ public class Main {
 
             //op = Transformer.transform(new TransformTopN(), op);
             //op = Algebra.toQuadForm(op);
+            op = Transformer.transform(new OpDistinctTransformer(), op);
+            SSE.write(op);
             OpWalker.walk(op, new RewritingOpVisitor());
 
             //TODO possibly use below tutorial for visitor pattern to translate algebra tree

@@ -88,17 +88,20 @@ public class RewritingUtils {
     public static void ProcessBindingsTable(Table table){
         //TODO the FILTER commands should be added if there is a JOIN clause between a Bindings table and some other op..
         //thus the functionality below should be changed to represent the Table in Arango (ex. array of objects with the bound vars..)
-        String bindingsInAql = "LET bindings = [";
+        //String bindingsInAql = "LET bindings = [";
+        String filterConds = "";
         List<Var> vars = table.getVars();
         for (Iterator<Binding> i = table.rows(); i.hasNext();){
-            bindingsInAql += ProcessBinding(i.next(), vars);
+            //bindingsInAql += ProcessBinding(i.next(), vars);
+            filterConds += ProcessBinding(i.next(), vars);
             if(i.hasNext()){
-                bindingsInAql += ",";
-                //System.out.println(" " + AqlOperators.OR + " ");
+                //bindingsInAql += ",";
+                filterConds += " " + AqlOperators.OR + " ";
             }
         }
-        bindingsInAql += "]";
-        System.out.println(bindingsInAql);
+        //bindingsInAql += "]";
+        //System.out.println(bindingsInAql);
+        System.out.println(filterConds);
     }
 
     public static String ProcessBinding(Binding binding, List<Var> vars){
@@ -108,7 +111,7 @@ public class RewritingUtils {
         String filterConds = "(";
         for(Var var : vars){
             //jsonObject += "\"" + var.getVarName() + "\" : " + binding.get(var).toString();
-            System.out.print(var.getVarName() + " " + AqlOperators.EQUALS + " " + binding.get(var).toString());
+            filterConds += var.getVarName() + " " + AqlOperators.EQUALS + " " + binding.get(var).toString();
             if(vars.get(vars.size() -1 ) != var){
                 filterConds += " " + AqlOperators.AND + " ";
                 //jsonObject += ",";

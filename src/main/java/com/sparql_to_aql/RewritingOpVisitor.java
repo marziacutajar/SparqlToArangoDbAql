@@ -59,24 +59,22 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
             RewritingUtils.ProcessTripleNode(triple.getSubject(), NodeRole.SUBJECT, forloopvarname, usedVars, filterConditions);
             RewritingUtils.ProcessTripleNode(triple.getPredicate(), NodeRole.PREDICATE, forloopvarname, usedVars, filterConditions);
             RewritingUtils.ProcessTripleNode(triple.getObject(), NodeRole.OBJECT, forloopvarname, usedVars, filterConditions);
-            //TODO create AQL subqueries?
             usedVariablesByForLoopItem.put(forloopvarname, usedVars);
         }
     }
 
-    //TODO consider the possibility of transforming all OpTriple instances to OpBgp so we can avoid repeating code and remove this visitor method
+    /*TODO consider the possibility of transforming all OpTriple instances to OpBgp so we can avoid repeating code and remove this visitor method.. or all OpBGPs to OpTriples
     @Override
     public void visit(OpTriple opTriple){
         Triple triple = opTriple.getTriple();
-        //TODO call ProcessTriple method in RewritingUtils once created?
 
         System.out.println("TRIPLE HERE");
-    }
+    }*/
 
-    //TODO decide whether to keep this method at all..
+    /*TODO decide if I need this
     @Override
     public void visit(OpQuad opQuad){
-    }
+    }*/
 
     @Override
     public void visit(OpJoin opJoin){
@@ -85,8 +83,17 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
         //OR use ATTRIBUTES function in AQL over both of them to join on the common attrs found
         //and create a FILTER statement with them and then merge variables in both
         //TODO check if the left or right side is a table, in which case we need to cater for that..
-        //System.out.println("FILTER left_side.var = right_side.var");
-        //System.out.println("RETURN { var1 = left_side.var1, var2 = leftside.var2, var3 = rightside.var3}");
+        if(opJoin.getRight() instanceof OpTable){
+            //TODO use variable name used in for loop in the filter conds if applicable..
+            // possibly instead of passing var name directly to methods for usage, put a placeholder and then replace
+            // all placeholders with the actual variable names after whole query construction (by keeping a map of varname to op)
+            OpTable opTable = (OpTable) opJoin.getRight();
+            RewritingUtils.ProcessBindingsTable(opTable.getTable());
+        }
+        else{
+            //System.out.println("FILTER left_side.var = right_side.var");
+            //System.out.println("RETURN { var1 = left_side.var1, var2 = leftside.var2, var3 = rightside.var3}");
+        }
     }
 
     @Override
@@ -159,6 +166,7 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
             }
             else{
                 //TODO if there's a sort clause in the expression, this will have to come between the return and collect statements
+                // OR just use LET = the whole query and add sort on it..
                 //SELECT DISTINCT WITH >1 VAR = COLLECT in AQL... TODO mention this in thesis writeup in AQL algebra??
                 collectStmt = "COLLECT ";
                 for(Var v: projectableVars){
@@ -234,25 +242,32 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
         System.out.println("LIMIT " + offset + ", " + limit);
     }
 
-    @Override
+    /*@Override
     public void visit(OpTopN opTopN){
         //this operator is only present if we use TransformTopN optimizer to change from OpSlice to OpTopN..
         //This operator contains limit + order by for better performance
         //https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/algebra/op/OpTopN.html
 
-        for(SortCondition cond : opTopN.getConditions()){
-            int direction = cond.getDirection();
-            //TODO use direction and update accordingly
-            RewritingUtils.ProcessExpr(cond.getExpression());
-        }
-        System.out.println("LIMIT " + opTopN.getLimit());
-    }
+        List<SortCondition> sortConditionList = opTopN.getConditions();
+        String[] conditions = new String[sortConditionList.size()];
 
-    public void visit(OpTable opTable){
+        for (int i= 0; i < sortConditionList.size(); i++) {
+            SortCondition currCond = sortConditionList.get(i);
+            //direction = 1 if ASC, -1 if DESC, -2 if unspecified (default asc)
+            String direction = currCond.getDirection() == -1 ? "DESC" : "ASC";
+            conditions[i] = currCond.getExpression() + " " + direction;
+        }
+
+        System.out.println("SORT " + String.join(", ", conditions));
+
+        System.out.println("LIMIT " + opTopN.getLimit());
+    }*/
+
+    /*public void visit(OpTable opTable){
         //TODO I think we need to add a filter clause such as (?var1 = val_1 && ?var2 = val_2) || (?var1 = val_3 && ?var2 = val_3) etc...
         //If we have a join to a table.. we could skip processing this operator and process it in the join.. might be more efficient actually then having to process it at both points
         RewritingUtils.ProcessBindingsTable(opTable.getTable());
-    }
+    }*/
 
     //TODO decide whether to add visit methods for OpList, OpPath and others.. or whether they'll be unsupported
 

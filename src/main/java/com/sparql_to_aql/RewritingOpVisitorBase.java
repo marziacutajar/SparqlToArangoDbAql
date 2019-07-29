@@ -18,7 +18,6 @@ public class RewritingOpVisitorBase extends OpVisitorBase {
 
     @Override
     public void visit(OpProcedure opProcedure){
-        //TODO not sure what the use of this is
         throw new UnsupportedOperationException("Encountered unsupported operation!");
     }
 }

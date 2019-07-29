@@ -63,7 +63,7 @@ public class Main {
             //op = Algebra.toQuadForm(op);
             //TODO TransformPattern2Join is useful if we want to process all triples seperately instead of as BGPs
             //however not having triples in the same bgp nested in the same subquery will make it slower..I think..
-            op = Transformer.transform(new TransformPattern2Join(), op);
+            //op = Transformer.transform(new TransformPattern2Join(), op);
             op = Transformer.transform(new OpDistinctTransformer(), op);
 
             //TODO consider also these existing transformers:

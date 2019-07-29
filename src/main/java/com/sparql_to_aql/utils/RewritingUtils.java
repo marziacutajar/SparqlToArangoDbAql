@@ -106,13 +106,18 @@ public class RewritingUtils {
 
     public static String ProcessBinding(Binding binding, List<Var> vars){
         //String jsonObject = "{";
+        int undefinedVarsAmount = 0;
         String filterConds = "(";
         for(Var var : vars){
             //jsonObject += "\"" + var.getVarName() + "\" : " + binding.get(var).toString();
             Node value = binding.get(var);
             if(value == null) {
                 //the variable is bound to an undefined value, that is the value of that variable can be anything in this binding case
-                //TODO if all values in one binding (one row of the table) are all null (UNDEF), then result set shouldn't be filtered
+                //if all values in one binding (one row of the table) are all null (UNDEF), then result set shouldn't be filtered
+                undefinedVarsAmount++;
+                if(undefinedVarsAmount == vars.size())
+                    filterConds += "true";
+
                 continue;
             }
 

@@ -25,22 +25,25 @@ import org.apache.jena.sparql.sse.SSE;
 import java.util.*;
 import java.util.stream.Collectors;
 
+//TODO could possibly use WalkerVisitor (to visit both Ops and Exprs in the same class)
 //TODO If rewriting to the actual AQL query, maybe use StringBuilder (refer to https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P)
 public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     //TODO build Aql query expression tree using below if we're gonna have seperate AQL algebra structure
-    private AqlOp _aqlAlgebraQueryExpression;
+    //private AqlOp _aqlAlgebraQueryExpression;
 
     //This method is to be called after the visitor has been used
-    public AqlOp GetAqlAlgebraQueryExpression()
+    /*public AqlOp GetAqlAlgebraQueryExpression()
     {
         return _aqlAlgebraQueryExpression;
-    }
+    }*/
 
     private int forLoopCounter = 0;
     //Keep track if which variables have already been bound in outer for loops
     private static Map<String, List<String>> usedVariablesByForLoopItem = new HashMap<>();
 
+    //TODO consider the possibility of replacing BGP with more than 1 triple pattern into multiple joins of triple patterns (remove bgps)
+    //each Triple should maybe be translated into a custom OpLoop operator in AQL
     @Override
     public void visit(OpBGP opBpg){
         for(Triple triple : opBpg.getPattern().getList()){
@@ -50,7 +53,6 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
             List<String> filterConditions = new ArrayList<>();
             forLoopCounter++;
             String forloopvarname = "forloop" + forLoopCounter + "item";
-
             System.out.println("FOR " + forloopvarname + " IN " + ArangoDatabaseSettings.rdfCollectionName);
 
             //TODO also keep list of filter clauses per triple..
@@ -67,6 +69,7 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     public void visit(OpTriple opTriple){
         Triple triple = opTriple.getTriple();
         //TODO call ProcessTriple method in RewritingUtils once created?
+
         System.out.println("TRIPLE HERE");
     }
 
@@ -211,6 +214,11 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpGroup opGroup){
         //TODO group, and consider mathematical expressions
+        //String collectStmt = "COLLECT ";
+        List<String> collectClauses = new ArrayList<>();
+        VarExprList varExprList = opGroup.getGroupVars();
+        varExprList.forEachVarExpr((v,e) -> collectClauses.add(v.getVarName() + " = " + RewritingUtils.ProcessExpr(e)));
+        //System.out.println(collectStmt);
     }
 
     @Override
@@ -234,8 +242,8 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
         for(SortCondition cond : opTopN.getConditions()){
             int direction = cond.getDirection();
-            Expr expr = cond.getExpression();
-            //TODO use above
+            //TODO use direction and update accordingly
+            RewritingUtils.ProcessExpr(cond.getExpression());
         }
         System.out.println("LIMIT " + opTopN.getLimit());
     }

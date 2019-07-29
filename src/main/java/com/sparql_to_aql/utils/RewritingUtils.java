@@ -86,8 +86,8 @@ public class RewritingUtils {
     }*/
 
     public static void ProcessBindingsTable(Table table){
-        //TODO the FILTER commands should be added if there is a JOIN clause between a Bindings table and some other op..
-        //thus the functionality below should be changed to represent the Table in Arango (ex. array of objects with the bound vars..)
+        //the FILTER commands should be added if there is a JOIN clause between a Bindings table and some other op..
+        //thus the functionality below could be changed to represent the Table in Arango (ex. array of objects with the bound vars..)
         //String bindingsInAql = "LET bindings = [";
         String filterConds = "";
         List<Var> vars = table.getVars();
@@ -105,13 +105,19 @@ public class RewritingUtils {
     }
 
     public static String ProcessBinding(Binding binding, List<Var> vars){
-        //TODO below consider whether the binding is to a literal, uri, or UNDEF.. if literal what data type it has, etc...
-        // a variable can be bound to an undefined value (ie. it can be any value..)
         //String jsonObject = "{";
         String filterConds = "(";
         for(Var var : vars){
             //jsonObject += "\"" + var.getVarName() + "\" : " + binding.get(var).toString();
-            filterConds += var.getVarName() + " " + AqlOperators.EQUALS + " " + binding.get(var).toString();
+            Node value = binding.get(var);
+            if(value == null) {
+                //the variable is bound to an undefined value, that is the value of that variable can be anything in this binding case
+                //TODO if all values in one binding (one row of the table) are all null (UNDEF), then result set shouldn't be filtered
+                continue;
+            }
+
+            //TODO consider whether the binding is to a literal, or uri.. if literal what data type it has, etc...
+            filterConds += var.getVarName() + " " + AqlOperators.EQUALS + " " + value.toString();
             if(vars.get(vars.size() -1 ) != var){
                 filterConds += " " + AqlOperators.AND + " ";
                 //jsonObject += ",";

@@ -1,6 +1,7 @@
 package com.sparql_to_aql.utils;
 
 import com.sparql_to_aql.constants.NodeRole;
+import com.sparql_to_aql.constants.RdfObjectTypes;
 import com.sparql_to_aql.constants.arangodb.AqlOperators;
 import org.apache.jena.base.Sys;
 import org.apache.jena.datatypes.RDFDatatype;
@@ -12,6 +13,7 @@ import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.expr.*;
 import org.apache.jena.sparql.util.ExprUtils;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -42,7 +44,7 @@ public class RewritingUtils {
             System.out.println("LET " + node.getName() + " = " + forLoopVarName +"." + attributeName);
         }
         else if(node.isURI()){
-            String filterCond = forLoopVarName + "." + attributeName + AqlOperators.EQUALS + " '" + node.getURI() + "'";
+            String filterCond = forLoopVarName + "." + attributeName + AqlOperators.EQUALS + AqlUtils.quoteString(node.getURI());
             filterConditions.add(filterCond);
         }
         else if(node.isBlank()){
@@ -50,11 +52,12 @@ public class RewritingUtils {
             //in two different basic graph patterns in the same query. But it's unclear whether blank nodes can still be projecte... maybe consider that they aren't for this impl
             //indicated by either the label form, such as "_:abc", or the abbreviated form "[]"
             //TODO if blank node doesn't have label, use node.getBlankNodeId();
+            System.out.println("ID " + node.getBlankNodeId());
             //TODO also check that blank node label wasn't already used in some other graph pattern
             System.out.println("LET " + node.getBlankNodeLabel() + " = " + forLoopVarName + "." + attributeName);
         }
         else if(node.isLiteral()){
-            String filterCond = ProcessLiteralNode(node);
+            filterConditions.addAll(ProcessLiteralNode(node));
         }
     }
 
@@ -148,22 +151,23 @@ public class RewritingUtils {
         return expr.toString();
     }
 
-    public static String ProcessLiteralNode(Node literal){
+    public static List<String> ProcessLiteralNode(Node literal){
         //important to compare to data type in Arango object here
+        List<String> filterConds = new ArrayList<>();
+        filterConds.add("var_name_here.o.type = " + AqlUtils.quoteString(RdfObjectTypes.LITERAL));
         RDFDatatype datatype = literal.getLiteralDatatype();
-        literal.getLiteralDatatypeURI();
-        //TODO add filter clause matching data type uri
+        filterConds.add("var_name_here.o.datatype = " + AqlUtils.quoteString(datatype.getURI()));
+
         if (datatype instanceof RDFLangString) {
-            literal.getLiteralLanguage();
-            //TODO add filter clause matching language
+            filterConds.add("var_name_here.o.lang = " + AqlUtils.quoteString(literal.getLiteralLanguage()));
         }
 
-        //TODO add filter for value - not sure which of these 2 below methods to call to get the value - refer to https://www.w3.org/TR/sparql11-query/#matchingRDFLiterals
-        //would probably be easier to use the lexical form everywhere.. that way I don't have to parse by type
-        literal.getLiteralValue();
-        literal.getLiteralLexicalForm();
+        //deiced which of these 2 below methods to call to get the value - refer to https://www.w3.org/TR/sparql11-query/#matchingRDFLiterals
+        //would probably be easier to use the lexical form everywhere.. that way I don't have to parse by type.. although when showing results to user we'll have to customize their displays according to the type..
+        //literal.getLiteralValue();
+        filterConds.add("var_name_here.o.value = " + AqlUtils.quoteString(literal.getLiteralLexicalForm()));
 
-        return "";
+        return filterConds;
     }
 
 }

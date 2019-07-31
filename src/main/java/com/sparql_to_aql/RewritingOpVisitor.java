@@ -40,6 +40,9 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     private int forLoopCounter = 0;
     //Keep track if which variables have already been bound in outer for loops
+    //TODO or create visit methods that return the result and create a custom walker that uses the results to compile the final AQL expression
+    // similar to how transformations work.. either have to add a new method public Op visit(OpType_here op) in each Op class OR make use of transform methods...latter could work
+    // but even if I use a transform visitor.. I will have to extend all Op classes with what I need to store in them
     private static Map<String, List<String>> usedVariablesByForLoopItem = new HashMap<>();
 
     //TODO consider the possibility of replacing BGP with more than 1 triple pattern into multiple joins of triple patterns (remove bgps)
@@ -48,18 +51,18 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     public void visit(OpBGP opBpg){
         for(Triple triple : opBpg.getPattern().getList()){
             //TODO consider moving this logic to a ProcessTriple method in RewritingOpVisitor
-            //TODO below vars should be private global in this class for use in other visitor methods somehow
             List<String> usedVars = new ArrayList<>();
+            //keep list of filter clauses per triple
             List<String> filterConditions = new ArrayList<>();
             forLoopCounter++;
             String forloopvarname = "forloop" + forLoopCounter + "item";
             System.out.println("FOR " + forloopvarname + " IN " + ArangoDatabaseSettings.rdfCollectionName);
 
-            //TODO also keep list of filter clauses per triple..
             RewritingUtils.ProcessTripleNode(triple.getSubject(), NodeRole.SUBJECT, forloopvarname, usedVars, filterConditions);
             RewritingUtils.ProcessTripleNode(triple.getPredicate(), NodeRole.PREDICATE, forloopvarname, usedVars, filterConditions);
             RewritingUtils.ProcessTripleNode(triple.getObject(), NodeRole.OBJECT, forloopvarname, usedVars, filterConditions);
             usedVariablesByForLoopItem.put(forloopvarname, usedVars);
+            filterConditions.forEach(f -> System.out.println(f));
         }
     }
 
@@ -120,10 +123,11 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpFilter opFilter){
-        //TODO iterate over expressions, add filter conditions in AQL format to some List<String> for concatenating later
         System.out.print("FILTER ");
+        //iterate over expressions, add filter conditions in AQL format to list for concatenating later
+        List<String> filterConds = new ArrayList<>();
         for(Iterator<Expr> i = opFilter.getExprs().iterator(); i.hasNext();){
-            RewritingUtils.ProcessExpr(i.next());
+            filterConds.add(RewritingUtils.ProcessExpr(i.next()));
         }
     }
 
@@ -165,9 +169,7 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
                 returnStatement += "DISTINCT ";
             }
             else{
-                //TODO if there's a sort clause in the expression, this will have to come between the return and collect statements
-                // OR just use LET = the whole query and add sort on it..
-                //SELECT DISTINCT WITH >1 VAR = COLLECT in AQL... TODO mention this in thesis writeup in AQL algebra??
+                //SELECT DISTINCT WITH >1 VAR = COLLECT in AQL... consider mentioning this in thesis writeup in AQL algebra
                 collectStmt = "COLLECT ";
                 for(Var v: projectableVars){
                     //Add each var to collect clause
@@ -188,6 +190,7 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpOrder opOrder) {
+        //TODO use LET = the whole query, then add sort on it and return every row
         List<SortCondition> sortConditionList = opOrder.getConditions();
         String[] conditions = new String[sortConditionList.size()];
 

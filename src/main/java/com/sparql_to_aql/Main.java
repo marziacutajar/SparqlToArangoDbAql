@@ -2,6 +2,7 @@ package com.sparql_to_aql;
 
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
+import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
 import org.apache.commons.cli.*;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.Algebra;
@@ -56,15 +57,19 @@ public class Main {
             SSE.write(op);
 
             System.out.println("initial validation and optimization of algebra");
-            //TODO call any optimization transformers on the algebra tree
             //TODO consider performing an initial walk over the tree to immediately notify the user if it contains unsupported ops.
+            //call any optimization transformers on the algebra tree
             //op = Algebra.optimize(op);
             //op = Transformer.transform(new TransformTopN(), op);
+            //TODO consider using below quad form.. might be easier to parse than having a GRAPH operator..
             //op = Algebra.toQuadForm(op);
             //TODO TransformPattern2Join is useful if we want to process all triples seperately instead of as BGPs
-            //however not having triples in the same bgp nested in the same subquery will make it slower..I think..
-            //op = Transformer.transform(new TransformPattern2Join(), op);
+            // however not having triples in the same bgp nested in the same subquery will make it slower..I think..
+            op = Transformer.transform(new TransformPattern2Join(), op);
             op = Transformer.transform(new OpDistinctTransformer(), op);
+
+            //transformer to use if we're gonna remove REDUCED from a query and just do a normal project
+            op = Transformer.transform(new OpReducedTransformer(), op);
 
             //TODO consider also these existing transformers:
             //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment

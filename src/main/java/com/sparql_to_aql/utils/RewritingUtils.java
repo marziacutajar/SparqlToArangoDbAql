@@ -1,5 +1,6 @@
 package com.sparql_to_aql.utils;
 
+import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.constants.RdfObjectTypes;
 import com.sparql_to_aql.constants.arangodb.AqlOperators;
@@ -19,33 +20,39 @@ import java.util.List;
 
 public class RewritingUtils {
     public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, List<String> usedVars, List<String> filterConditions){
-        if(node.isVariable())
-            usedVars.add(node.getName());
-
         String attributeName;
 
         switch(role){
             case SUBJECT:
-                attributeName = "s";
+                attributeName = ArangoAttributes.SUBJECT;
                 break;
             case PREDICATE:
-                attributeName = "p";
+                attributeName = ArangoAttributes.PREDICATE;
                 break;
             case OBJECT:
-                attributeName = "o";
+                attributeName = ArangoAttributes.OBJECT;
                 break;
             default:
                 throw new UnsupportedOperationException();
         }
 
-        //TODO I think ideally we do the assigning of variables (LET) at the end.. first add the filters then maybe replace assignments with a RETURN clause holding the mapping
         //DEPENDS IF YOU CAN HAVE MIX OF LET AND FILTER AFTER EACH OTHER IN THE SAME FOR LOOP - I think so.. refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
         if(node.isVariable()) {
-            System.out.println("LET " + node.getName() + " = " + forLoopVarName +"." + attributeName);
+            String var_name = node.getName();
+            if(usedVars.contains(var_name)){
+                //node was already bound in another triple, add a filter condition instead
+                //TODO we might have to use AQL MATCHES function here to make sure objects are identical
+                filterConditions.add(forLoopVarName + "." + attributeName + AqlOperators.EQUALS + var_name);
+            }
+            else {
+                System.out.println("LET " + node.getName() + " = " + forLoopVarName + "." + attributeName);
+                //add variable to list of already used/bound vars
+                usedVars.add(node.getName());
+            }
         }
         else if(node.isURI()){
-            String filterCond = forLoopVarName + "." + attributeName + AqlOperators.EQUALS + AqlUtils.quoteString(node.getURI());
-            filterConditions.add(filterCond);
+            filterConditions.add(forLoopVarName + "." + attributeName + "." + ArangoAttributes.TYPE + AqlOperators.EQUALS + AqlUtils.quoteString(RdfObjectTypes.IRI));
+            filterConditions.add(forLoopVarName + "." + attributeName + "." + ArangoAttributes.VALUE + AqlOperators.EQUALS + AqlUtils.quoteString(node.getURI()));
         }
         else if(node.isBlank()){
             //blank nodes act as variables, not much difference other than that the same blank node label cannot be used
@@ -154,18 +161,19 @@ public class RewritingUtils {
     public static List<String> ProcessLiteralNode(Node literal){
         //important to compare to data type in Arango object here
         List<String> filterConds = new ArrayList<>();
-        filterConds.add("var_name_here.o.type = " + AqlUtils.quoteString(RdfObjectTypes.LITERAL));
+        filterConds.add("var_name_here" + "." + ArangoAttributes.OBJECT + "." + ArangoAttributes.TYPE + AqlOperators.EQUALS + AqlUtils.quoteString(RdfObjectTypes.LITERAL));
         RDFDatatype datatype = literal.getLiteralDatatype();
-        filterConds.add("var_name_here.o.datatype = " + AqlUtils.quoteString(datatype.getURI()));
+        filterConds.add("var_name_here" + "." + ArangoAttributes.OBJECT + "." + ArangoAttributes.LITERAL_DATA_TYPE + AqlOperators.EQUALS + AqlUtils.quoteString(datatype.getURI()));
 
         if (datatype instanceof RDFLangString) {
-            filterConds.add("var_name_here.o.lang = " + AqlUtils.quoteString(literal.getLiteralLanguage()));
+            filterConds.add("var_name_here" + "." + ArangoAttributes.OBJECT + "." + ArangoAttributes.LITERAL_LANGUAGE + AqlOperators.EQUALS + AqlUtils.quoteString(literal.getLiteralLanguage()));
         }
 
         //deiced which of these 2 below methods to call to get the value - refer to https://www.w3.org/TR/sparql11-query/#matchingRDFLiterals
         //would probably be easier to use the lexical form everywhere.. that way I don't have to parse by type.. although when showing results to user we'll have to customize their displays according to the type..
         //literal.getLiteralValue();
-        filterConds.add("var_name_here.o.value = " + AqlUtils.quoteString(literal.getLiteralLexicalForm()));
+        //TODO using the lexical form won't work when we want to apply math or string functions to values in AQL!
+        filterConds.add("var_name_here" + "." + ArangoAttributes.OBJECT + "." + ArangoAttributes.VALUE + AqlOperators.EQUALS + AqlUtils.quoteString(literal.getLiteralLexicalForm()));
 
         return filterConds;
     }

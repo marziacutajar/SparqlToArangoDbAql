@@ -9,7 +9,6 @@ package com.sparql_to_aql;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.entities.algebra.OpDistinctProject;
-import com.sparql_to_aql.entities.algebra.aql.AqlOp;
 import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
 import com.sparql_to_aql.utils.RewritingUtils;
 import org.apache.jena.graph.Node;
@@ -30,10 +29,10 @@ import java.util.stream.Collectors;
 public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
     //TODO build Aql query expression tree using below if we're gonna have seperate AQL algebra structure
-    //private AqlOp _aqlAlgebraQueryExpression;
+    //private Op _aqlAlgebraQueryExpression;
 
     //This method is to be called after the visitor has been used
-    /*public AqlOp GetAqlAlgebraQueryExpression()
+    /*public Op GetAqlAlgebraQueryExpression()
     {
         return _aqlAlgebraQueryExpression;
     }*/
@@ -113,7 +112,7 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpMinus opMinus){
         //call MINUS function on left and right sides, assign to a variable using LET
-        //TODO what if there are variables on the righthand side not on the left side.. how to handle this?
+        //TODO what if there are variables on the righthand side not on the left side.. how to handle this? .. I think you just ignore them..
         //if there are no shared variables, do nothing (no matching bindings)
         //IMPORTANT: In MINUS operator we only consider variable bindings ex. if we have MINUS(<http://a> <http://b> <http://c>) and this triple is
         //in the results of the lefthand side, that triple won't be removed because there are no bindings
@@ -147,6 +146,7 @@ public class RewritingOpVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpGraph opGraph){
         //TODO Add extra filter condition to list of filter clauses when we have one..
+        // ACTUALLY - best option would be to use a transformer to move the graph operator down over every bgp or every triple (quad form) in its subtree and then remove this outer one
         Node graphNode = opGraph.getNode();
         if(graphNode.isVariable()){
             String forloopvarname = "forloop" + forLoopCounter + "item";

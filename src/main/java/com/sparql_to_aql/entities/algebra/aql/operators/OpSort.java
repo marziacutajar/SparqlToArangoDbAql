@@ -27,24 +27,24 @@ public class OpSort extends OpModifier
 
     /*@Override
     public Op apply(Transform transform, Op subOp)
-    { return transform.transform(this, subOp) ; }
+    { return transform.transform(this, subOp); }
 
     @Override
     public int hashCode()
     {
-        return conditions.hashCode() ^ getSubOp().hashCode() ;
+        return conditions.hashCode() ^ getSubOp().hashCode();
     }
 
     @Override
     public boolean equalTo(Op other, NodeIsomorphismMap labelMap)
     {
-        if ( ! (other instanceof OpOrder) ) return false ;
-        OpOrder opOrder = (OpOrder)other ;
+        if ( ! (other instanceof OpOrder) ) return false;
+        OpOrder opOrder = (OpOrder)other;
 
         if ( ! opOrder.getConditions().equals(this.getConditions()) )
-            return false ;
+            return false;
 
         //
-        return getSubOp().equalTo(opOrder.getSubOp(), labelMap) ;
+        return getSubOp().equalTo(opOrder.getSubOp(), labelMap);
     }*/
 }

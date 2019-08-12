@@ -1,28 +1,28 @@
-package com.sparql_to_aql.entities.algebra.aql;
+package com.sparql_to_aql.entities.algebra.aql.expressions;
 
 public class Var extends Expr
 {
     final protected String name;
 
     public static Var alloc(String varName) {
-        return new Var(varName) ;
+        return new Var(varName);
     }
 
     public static Var alloc(Var v) {
         return v;
     }
 
-    public static Var alloc(ExprVar nv)         { return new Var(nv) ; }
+    public static Var alloc(ExprVar nv)         { return new Var(nv); }
 
     // Precalulated the hash code because hashCode() is used so heavily with Var's
-    //private final int hashCodeValue ;
+    //private final int hashCodeValue;
 
     private Var(String varName){
-        name = varName ;
-        //hashCodeValue = super.hashCode() ;
+        name = varName;
+        //hashCodeValue = super.hashCode();
     }
 
-    private Var(ExprVar v)           { this(v.getVarName()) ; }
+    private Var(ExprVar v)           { this(v.getVarName()); }
 
     @Override
     public boolean isVariable() {
@@ -35,13 +35,13 @@ public class Var extends Expr
     }
 
     //@Override
-    //public final int hashCode() { return hashCodeValue ; }
+    //public final int hashCode() { return hashCodeValue; }
 
     @Override
     public final boolean equals(Object other) {
-        if ( this == other ) return true ;
-        if ( ! ( other instanceof Var ) ) return false ;
-        return super.equals(other) ;
+        if ( this == other ) return true;
+        if ( ! ( other instanceof Var ) ) return false;
+        return super.equals(other);
     }
 
     // -------

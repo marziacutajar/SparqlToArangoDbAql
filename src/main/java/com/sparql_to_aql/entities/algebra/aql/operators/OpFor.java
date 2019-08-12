@@ -27,10 +27,10 @@ public class OpFor implements Op {
     public String getDataArrayName() { return dataArrayName; }
 
     @Override
-    public void visit(OpVisitor opVisitor) { opVisitor.visit(this) ; }
+    public void visit(OpVisitor opVisitor) { opVisitor.visit(this); }
 
     @Override
-    public String getName() { return AqlConstants.keywordFor ; }
+    public String getName() { return AqlConstants.keywordFor; }
 
     public Op addSubqueryOrAssignment(Op subqueryIn){
         subqueriesOrAssignments.add(subqueryIn);

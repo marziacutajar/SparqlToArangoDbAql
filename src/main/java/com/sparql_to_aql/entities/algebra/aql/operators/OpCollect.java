@@ -18,9 +18,9 @@ public class OpCollect extends Op1
 
     public OpCollect(Op subOp, VarExprList groupVars, List<ExprAggregator> aggregators)
     {
-        super(subOp) ;
-        this.groupVars  = groupVars ;
-        this.aggregators = aggregators ;
+        super(subOp);
+        this.groupVars  = groupVars;
+        this.aggregators = aggregators;
     }
 
     @Override
@@ -36,29 +36,29 @@ public class OpCollect extends Op1
 
     /*@Override
     public Op apply(Transform transform, Op subOp)
-    { return transform.transform(this, subOp) ; }
+    { return transform.transform(this, subOp); }
 
     @Override
     public int hashCode()
     {
-        int x = getSubOp().hashCode() ;
+        int x = getSubOp().hashCode();
         if ( groupVars != null )
-            x ^= groupVars.hashCode() ;
+            x ^= groupVars.hashCode();
         if ( aggregators != null )
-            x ^= aggregators.hashCode() ;
-        return x ;
+            x ^= aggregators.hashCode();
+        return x;
     }
 
     @Override
     public boolean equalTo(Op other, NodeIsomorphismMap labelMap)
     {
-        if ( ! (other instanceof OpGroup) ) return false ;
-        OpGroup opGroup = (OpGroup)other ;
+        if ( ! (other instanceof OpGroup) ) return false;
+        OpGroup opGroup = (OpGroup)other;
         if ( ! Objects.equals(groupVars, opGroup.groupVars) )
-            return false ;
+            return false;
         if ( ! Objects.equals(aggregators, opGroup.aggregators) )
-            return false ;
+            return false;
 
-        return getSubOp().equalTo(opGroup.getSubOp(), labelMap) ;
+        return getSubOp().equalTo(opGroup.getSubOp(), labelMap);
     }*/
 }

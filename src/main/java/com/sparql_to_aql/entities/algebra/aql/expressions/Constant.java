@@ -1,4 +1,4 @@
-package com.sparql_to_aql.entities.algebra.aql;
+package com.sparql_to_aql.entities.algebra.aql.expressions;
 
 public class Constant extends Expr
 {
@@ -7,6 +7,7 @@ public class Constant extends Expr
     @Override
     public boolean isConstant()        { return true; }
 
+    //TODO change value returned below
     @Override
-    public Constant getConstant()      { return null ; }
+    public Constant getConstant()      { return null; }
 }

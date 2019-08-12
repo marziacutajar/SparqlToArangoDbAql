@@ -1,4 +1,8 @@
-package com.sparql_to_aql.entities.algebra.aql;
+package com.sparql_to_aql.entities.algebra.aql.operators;
+
+import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
+import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
+import com.sparql_to_aql.entities.algebra.aql.SortCondition;
 
 import java.util.List;
 

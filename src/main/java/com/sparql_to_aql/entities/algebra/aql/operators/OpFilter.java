@@ -1,4 +1,9 @@
-package com.sparql_to_aql.entities.algebra.aql;
+package com.sparql_to_aql.entities.algebra.aql.operators;
+
+import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
+import com.sparql_to_aql.entities.algebra.aql.expressions.Expr;
+import com.sparql_to_aql.entities.algebra.aql.expressions.ExprList;
+import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
 
 public class OpFilter extends Op1
 {
@@ -33,9 +38,9 @@ public class OpFilter extends Op1
      */
     public static Op filterBy(ExprList exprs, Op op) {
         if ( exprs == null || exprs.isEmpty() )
-            return op ;
-        OpFilter f = ensureFilter(op) ;
-        f.getExprs().addAll(exprs) ;
+            return op;
+        OpFilter f = ensureFilter(op);
+        f.getExprs().addAll(exprs);
         return f;
     }
 
@@ -43,58 +48,58 @@ public class OpFilter extends Op1
      * If subOp is a filter, combine expressions (de-layer).
      */
     public static OpFilter filterAlways(ExprList exprs, Op subOp) {
-        OpFilter f = ensureFilter(subOp) ;
-        f.getExprs().addAll(exprs) ;
-        return f ;
+        OpFilter f = ensureFilter(subOp);
+        f.getExprs().addAll(exprs);
+        return f;
     }
 
     /** Make a OpFilter - guaranteed to return an fresh OpFilter */
     public static OpFilter filterDirect(ExprList exprs, Op op) {
-        return new OpFilter(exprs, op) ;
+        return new OpFilter(exprs, op);
     }
 
     /** Make a OpFilter - guaranteed to return an fresh OpFilter */
     public static OpFilter filterDirect(Expr expr, Op op) {
-        OpFilter f = new OpFilter(op) ;
+        OpFilter f = new OpFilter(op);
         f.getExprs().add(expr);
-        return f ;
+        return f;
     }
 
-    private OpFilter(Op sub) {
-        super(sub) ;
-        expressions = new ExprList() ;
+    public OpFilter(Op sub) {
+        super(sub);
+        expressions = new ExprList();
     }
 
-    private OpFilter(ExprList exprs, Op sub) {
-        super(sub) ;
-        expressions = exprs ;
+    public OpFilter(ExprList exprs, Op sub) {
+        super(sub);
+        expressions = exprs;
     }
 
     /** Compress multiple filters: (filter (filter (filter op)))) into one (filter op) */
     public static OpFilter tidy(OpFilter base) {
-        ExprList exprs = new ExprList() ;
+        ExprList exprs = new ExprList();
 
-        Op op = base ;
+        Op op = base;
         while (op instanceof OpFilter) {
-            OpFilter f = (OpFilter)op ;
-            exprs.addAll(f.getExprs()) ;
-            op = f.getSubOp() ;
+            OpFilter f = (OpFilter)op;
+            exprs.addAll(f.getExprs());
+            op = f.getSubOp();
         }
-        return new OpFilter(exprs, op) ;
+        return new OpFilter(exprs, op);
     }
 
-    public ExprList getExprs() { return expressions ; }
+    public ExprList getExprs() { return expressions; }
 
     @Override
-    public String getName() { return AqlConstants.keywordFilter ; }
+    public String getName() { return AqlConstants.keywordFilter; }
 
     /*@Override
     public Op apply(Transform transform, Op subOp)
-    { return transform.transform(this, subOp) ; }*/
+    { return transform.transform(this, subOp); }*/
 
     @Override
-    public void visit(OpVisitor opVisitor) { opVisitor.visit(this) ; }
+    public void visit(OpVisitor opVisitor) { opVisitor.visit(this); }
 
     @Override
-    public Op1 copy(Op subOp)                { return new OpFilter(expressions, subOp) ; }
+    public Op1 copy(Op subOp)                { return new OpFilter(expressions, subOp); }
 }

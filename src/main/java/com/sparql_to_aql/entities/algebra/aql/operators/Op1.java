@@ -1,4 +1,4 @@
-package com.sparql_to_aql.entities.algebra.aql;
+package com.sparql_to_aql.entities.algebra.aql.operators;
 
 public abstract class Op1 implements Op {
     private Op sub;

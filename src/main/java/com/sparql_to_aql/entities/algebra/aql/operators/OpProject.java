@@ -1,9 +1,14 @@
-package com.sparql_to_aql.entities.algebra.aql;
+package com.sparql_to_aql.entities.algebra.aql.operators;
+
+import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
+import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
+import com.sparql_to_aql.entities.algebra.aql.expressions.Var;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class OpProject extends OpModifier {
+
     private List<Var> vars = new ArrayList<>();
 
     public OpProject(Op subOp, List<Var> vars)

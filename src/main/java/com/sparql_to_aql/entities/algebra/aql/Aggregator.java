@@ -1,4 +1,4 @@
 package com.sparql_to_aql.entities.algebra.aql;
 
-public class Expr {
+public class Aggregator {
 }

@@ -1,4 +1,6 @@
-package com.sparql_to_aql.entities.algebra.aql;
+package com.sparql_to_aql.entities.algebra.aql.operators;
+
+import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
 
 public interface Op
 {

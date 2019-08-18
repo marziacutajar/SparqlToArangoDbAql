@@ -1,4 +1,4 @@
-package com.sparql_to_aql.entities.algebra.aql;
+package com.aql.algebra;
 
 public class AqlConstants {
     public static final String keywordFor = "for";

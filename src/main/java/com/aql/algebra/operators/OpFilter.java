@@ -5,7 +5,7 @@ import com.sparql_to_aql.entities.algebra.aql.expressions.Expr;
 import com.sparql_to_aql.entities.algebra.aql.expressions.ExprList;
 import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
 
-public class OpFilter extends Op1
+public class OpFilter extends Op1Nesting
 {
     protected ExprList expressions;
 

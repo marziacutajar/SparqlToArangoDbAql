@@ -9,6 +9,8 @@ import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.OpWalker;
 import org.apache.jena.sparql.algebra.Transformer;
+import org.apache.jena.sparql.algebra.optimize.TransformFilterImplicitJoin;
+import org.apache.jena.sparql.algebra.optimize.TransformJoinStrategy;
 import org.apache.jena.sparql.algebra.optimize.TransformPattern2Join;
 import org.apache.jena.sparql.algebra.optimize.TransformTopN;
 import org.apache.jena.sparql.algebra.walker.Walker;

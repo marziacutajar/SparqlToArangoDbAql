@@ -1,11 +1,5 @@
 package com.sparql_to_aql;
 
-//class used for rewriting of SPARQL algebra expression to AQL
-//TODO decide whether we will "rewrite" the expression to use algebra operators that are
-//more AQL specific (by creating custom Op and sub operators for AQL), or whether we will
-//translate the SPARQL algebra expressions directly to an AQL query (would be hard to re-optimise such a query though..)
-//TODO consider creating a new OpAssign operator for representing LET statement in AQL.. would be helpful when joining etc..
-//TODO also consider creating a new OpCollect operator
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.entities.algebra.OpDistinctProject;
@@ -26,22 +20,12 @@ import java.util.stream.Collectors;
 
 //TODO could possibly use WalkerVisitor (to visit both Ops and Exprs in the same class)
 //TODO If rewriting to the actual AQL query, maybe use StringBuilder (refer to https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P)
+//class used for rewriting of SPARQL algebra expression to AQL query
 public class RewritingOpVisitor extends RewritingOpVisitorBase {
 
-    //TODO build Aql query expression tree using below if we're gonna have seperate AQL algebra structure
-    //private Op _aqlAlgebraQueryExpression;
-
-    //This method is to be called after the visitor has been used
-    /*public Op GetAqlAlgebraQueryExpression()
-    {
-        return _aqlAlgebraQueryExpression;
-    }*/
-
     private int forLoopCounter = 0;
+
     //Keep track if which variables have already been bound in outer for loops
-    //TODO or create visit methods that return the result and create a custom walker that uses the results to compile the final AQL expression
-    // similar to how transformations work.. either have to add a new method public Op visit(OpType_here op) in each Op class OR make use of transform methods...latter could work
-    // but even if I use a transform visitor.. I will have to extend all Op classes with what I need to store in them
     private static Map<String, List<String>> usedVariablesByForLoopItem = new HashMap<>();
 
     //TODO consider the possibility of replacing BGP with more than 1 triple pattern into multiple joins of triple patterns (remove bgps)

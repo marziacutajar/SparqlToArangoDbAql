@@ -2,29 +2,27 @@ package com.sparql_to_aql.entities.algebra.aql.operators;
 
 import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
 import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
+import com.sparql_to_aql.entities.algebra.aql.expressions.Expr;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class OpFor implements Op {
+//TODO consider instead of having a Forloop operator, create a class called IterationResource with the below private fields.. and pass IterationResource to filter operations, extend operations, etc..
+public class OpFor extends Op0Nesting {
     //TODO consider changing this to Var type..or remove Var type completely!!
     private String iterationVariable;
 
-    private String dataArrayName;
+    private Expr dataArrayExpr;
 
-    //TODO possibly keep list of nested subqueries/assignments here
-    private List<Op> subqueriesOrAssignments;
-
-    public OpFor(String iterationVarName, String dataArrayName)
+    public OpFor(String iterationVarName, Expr dataArrayExpr)
     {
         this.iterationVariable = iterationVarName;
-        this.dataArrayName = dataArrayName;
-        this.subqueriesOrAssignments = new ArrayList<>();
+        this.dataArrayExpr = dataArrayExpr;
     }
 
     public String getIterationVar() { return iterationVariable; }
 
-    public String getDataArrayName() { return dataArrayName; }
+    public Expr getDataArrayExpr() { return dataArrayExpr; }
 
     @Override
     public void visit(OpVisitor opVisitor) { opVisitor.visit(this); }
@@ -32,8 +30,9 @@ public class OpFor implements Op {
     @Override
     public String getName() { return AqlConstants.keywordFor; }
 
-    public Op addSubqueryOrAssignment(Op subqueryIn){
-        subqueriesOrAssignments.add(subqueryIn);
-        return this;
+    @Override
+    public Op0 copy(){
+        return new OpFor(iterationVariable, dataArrayExpr);
     }
+
 }

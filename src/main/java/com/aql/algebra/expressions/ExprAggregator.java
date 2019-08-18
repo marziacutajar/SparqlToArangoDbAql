@@ -2,7 +2,7 @@ package com.sparql_to_aql.entities.algebra.aql.expressions;
 
 import com.sparql_to_aql.entities.algebra.aql.Aggregator;
 
-public class ExprAggregator {
+public class ExprAggregator extends Expr {
 
     protected Aggregator aggregator;
     protected Var var;

@@ -2,6 +2,7 @@ package com.sparql_to_aql.entities.algebra.aql.operators;
 
 import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
 import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
+import com.sparql_to_aql.entities.algebra.aql.expressions.Expr;
 import com.sparql_to_aql.entities.algebra.aql.expressions.Var;
 
 import java.util.ArrayList;
@@ -9,32 +10,38 @@ import java.util.List;
 
 public class OpProject extends OpModifier {
 
-    private List<Var> vars = new ArrayList<>();
+    private List<Expr> exprs = new ArrayList<>();
 
-    public OpProject(Op subOp, List<Var> vars)
+    public OpProject(Op subOp, List<Expr> exprs)
     {
         super(subOp);
-        this.vars = vars;
+        this.exprs = exprs;
     }
 
-    public List<Var> getVars() { return vars; }
+    public OpProject(Op subOp, Expr expr)
+    {
+        super(subOp);
+        this.exprs.add(expr);
+    }
+
+    public List<Expr> getExprs() { return exprs; }
 
     @Override
     public String getName() { return AqlConstants.keywordReturn; }
     @Override
     public void visit(OpVisitor opVisitor)  { opVisitor.visit(this); }
     @Override
-    public Op1 copy(Op subOp)                { return new OpProject(subOp, vars); }
+    public Op1 copy(Op subOp)                { return new OpProject(subOp, exprs); }
 
     /*@Override
     public Op apply(Transform transform, Op subOp)
     { return transform.transform(this, subOp); }*/
 
-    @Override
+    /*@Override
     public int hashCode()
     {
-        return vars.hashCode() ^ getSubOp().hashCode();
-    }
+        return exprs.hashCode() ^ getSubOp().hashCode();
+    }*/
 
     /*@Override
     public boolean equalTo(Op other, NodeIsomorphismMap labelMap)

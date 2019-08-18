@@ -1,6 +1,6 @@
-package com.sparql_to_aql.entities.algebra.aql.operators;
+package com.aql.algebra.operators;
 
-public abstract class Op1 implements Op {
+public abstract class Op1 extends OpNesting implements Op {
     private Op sub;
 
     public Op1(Op subOp)

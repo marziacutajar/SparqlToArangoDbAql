@@ -1,14 +1,11 @@
-package com.sparql_to_aql.entities.algebra.aql.operators;
+package com.aql.algebra.operators;
 
-import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
-import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
-import com.sparql_to_aql.entities.algebra.aql.expressions.Expr;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.aql.algebra.AqlConstants;
+import com.aql.algebra.OpVisitor;
+import com.aql.algebra.expressions.Expr;
 
 //TODO consider instead of having a Forloop operator, create a class called IterationResource with the below private fields.. and pass IterationResource to filter operations, extend operations, etc..
-public class OpFor extends Op0Nesting {
+public class OpFor extends Op0 {
     //TODO consider changing this to Var type..or remove Var type completely!!
     private String iterationVariable;
 

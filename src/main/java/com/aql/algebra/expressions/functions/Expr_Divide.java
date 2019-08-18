@@ -1,7 +1,7 @@
-package com.sparql_to_aql.entities.algebra.aql.expressions.functions;
+package com.aql.algebra.expressions.functions;
 
-import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
-import com.sparql_to_aql.entities.algebra.aql.expressions.Expr;
+import com.aql.algebra.AqlConstants;
+import com.aql.algebra.expressions.Expr;
 
 public class Expr_Divide extends ExprFunction2{
     private static final String functionName = "divide";

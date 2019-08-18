@@ -1,6 +1,6 @@
-package com.sparql_to_aql.entities.algebra.aql.expressions.constants;
+package com.aql.algebra.expressions.constants;
 
-import com.sparql_to_aql.entities.algebra.aql.expressions.Constant;
+import com.aql.algebra.expressions.Constant;
 
 public class Const_Array extends Constant {
 }

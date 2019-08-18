@@ -1,8 +1,8 @@
-package com.sparql_to_aql.entities.algebra.aql.operators;
+package com.aql.algebra.operators;
 
-import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
-import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
-import com.sparql_to_aql.entities.algebra.aql.expressions.Expr;
+import com.aql.algebra.AqlConstants;
+import com.aql.algebra.OpVisitor;
+import com.aql.algebra.expressions.Expr;
 
 public class OpAssign extends Op0{
     //can assign either an expression or an Op result to a variable

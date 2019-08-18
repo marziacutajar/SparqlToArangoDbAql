@@ -1,4 +1,4 @@
-package com.sparql_to_aql.entities.algebra.aql.operators;
+package com.aql.algebra.operators;
 
 import java.util.ArrayList;
 import java.util.Iterator;

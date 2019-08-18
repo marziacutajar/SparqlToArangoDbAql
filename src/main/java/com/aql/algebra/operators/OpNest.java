@@ -1,7 +1,6 @@
-package com.sparql_to_aql.entities.algebra.aql.operators;
+package com.aql.algebra.operators;
 
-import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
-import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
+import com.aql.algebra.OpVisitor;
 
 //TODO choose between using this op or using Op0Nesting/Op1Nesting...
 // personally I prefer the latter cause nesting isn't really an Op per se..

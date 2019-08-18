@@ -1,7 +1,7 @@
-package com.sparql_to_aql.entities.algebra.aql.operators;
+package com.aql.algebra.operators;
 
-import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
-import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
+import com.aql.algebra.AqlConstants;
+import com.aql.algebra.OpVisitor;
 
 public class OpLimit extends OpModifier
 {

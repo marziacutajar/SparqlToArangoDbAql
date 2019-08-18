@@ -1,4 +1,4 @@
-package com.sparql_to_aql.entities.algebra.aql.operators;
+package com.aql.algebra.operators;
 
 //TODO consider extending Op1Nesting here
 public abstract class OpModifier extends Op1 {

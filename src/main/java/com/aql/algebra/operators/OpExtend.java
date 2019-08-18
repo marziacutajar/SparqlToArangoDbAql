@@ -1,7 +1,6 @@
-package com.sparql_to_aql.entities.algebra.aql.operators;
+package com.aql.algebra.operators;
 
-import com.sparql_to_aql.entities.algebra.aql.AqlConstants;
-import com.sparql_to_aql.entities.algebra.aql.OpVisitor;
+import com.aql.algebra.OpVisitor;
 
 //TODO remove this if we're going to use OpNest or Op0Nesting/Op1Nesting
 public class OpExtend extends Op1{

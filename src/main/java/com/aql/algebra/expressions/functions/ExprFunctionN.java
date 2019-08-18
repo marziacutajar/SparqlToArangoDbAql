@@ -1,8 +1,8 @@
-package com.sparql_to_aql.entities.algebra.aql.expressions.functions;
+package com.aql.algebra.expressions.functions;
 
-import com.sparql_to_aql.entities.algebra.aql.expressions.Expr;
-import com.sparql_to_aql.entities.algebra.aql.expressions.ExprFunction;
-import com.sparql_to_aql.entities.algebra.aql.expressions.ExprList;
+import com.aql.algebra.expressions.Expr;
+import com.aql.algebra.expressions.ExprFunction;
+import com.aql.algebra.expressions.ExprList;
 
 import java.util.List;
 
@@ -46,7 +46,7 @@ public abstract class ExprFunctionN extends ExprFunction {
     @Override
     public List<Expr> getArgs() { return args.getList(); }
 
-    public abstract Expr copy(ExprList newArgs);
+    public abstract Expr copy(Expr... newArgs);
 
     /*@Override
     public void visit(ExprVisitor visitor) { visitor.visit(this); }

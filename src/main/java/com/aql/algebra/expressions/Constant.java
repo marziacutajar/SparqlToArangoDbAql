@@ -1,4 +1,4 @@
-package com.sparql_to_aql.entities.algebra.aql.expressions;
+package com.aql.algebra.expressions;
 
 import com.sparql_to_aql.exceptions.AqlExprTypeException;
 

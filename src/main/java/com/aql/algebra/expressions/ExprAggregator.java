@@ -1,6 +1,6 @@
-package com.sparql_to_aql.entities.algebra.aql.expressions;
+package com.aql.algebra.expressions;
 
-import com.sparql_to_aql.entities.algebra.aql.Aggregator;
+import com.aql.algebra.Aggregator;
 
 public class ExprAggregator extends Expr {
 

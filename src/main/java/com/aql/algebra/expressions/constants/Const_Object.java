@@ -1,4 +1,4 @@
-package com.sparql_to_aql.entities.algebra.aql.expressions.constants;
+package com.aql.algebra.expressions.constants;
 
 public class Const_Object {
 }

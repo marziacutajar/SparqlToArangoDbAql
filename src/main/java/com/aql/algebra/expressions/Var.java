@@ -1,4 +1,4 @@
-package com.sparql_to_aql.entities.algebra.aql.expressions;
+package com.aql.algebra.expressions;
 
 public class Var extends Expr
 {

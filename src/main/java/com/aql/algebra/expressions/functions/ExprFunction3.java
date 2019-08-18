@@ -1,7 +1,7 @@
-package com.sparql_to_aql.entities.algebra.aql.expressions.functions;
+package com.aql.algebra.expressions.functions;
 
-import com.sparql_to_aql.entities.algebra.aql.expressions.Expr;
-import com.sparql_to_aql.entities.algebra.aql.expressions.ExprFunction;
+import com.aql.algebra.expressions.Expr;
+import com.aql.algebra.expressions.ExprFunction;
 
 public abstract class ExprFunction3 extends ExprFunction {
     protected final Expr expr1;

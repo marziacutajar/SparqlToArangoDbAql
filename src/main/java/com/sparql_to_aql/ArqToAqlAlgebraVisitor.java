@@ -1,7 +1,9 @@
 package com.sparql_to_aql;
 
-import com.aql.algebra.operators.OpNesting;
+import com.aql.algebra.operators.*;
+import com.aql.algebra.operators.OpAssign;
 import com.sparql_to_aql.constants.ArangoAttributes;
+import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.constants.RdfObjectTypes;
 import com.sparql_to_aql.constants.arangodb.AqlOperators;
@@ -12,10 +14,10 @@ import com.aql.algebra.expressions.constants.Const_Bool;
 import com.aql.algebra.expressions.constants.Const_Number;
 import com.aql.algebra.expressions.constants.Const_String;
 import com.aql.algebra.expressions.functions.*;
-import com.aql.algebra.operators.Op;
-import com.aql.algebra.operators.OpFor;
+import com.sparql_to_aql.entities.algebra.OpGraphBGP;
 import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
+import com.sparql_to_aql.utils.VariableGenerator;
 import org.apache.jena.datatypes.RDFDatatype;
 import org.apache.jena.datatypes.xsd.impl.RDFLangString;
 import org.apache.jena.graph.Node;
@@ -23,6 +25,10 @@ import org.apache.jena.graph.Triple;
 import org.apache.jena.query.SortCondition;
 import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.algebra.op.*;
+import org.apache.jena.sparql.algebra.op.OpExtend;
+import org.apache.jena.sparql.algebra.op.OpFilter;
+import org.apache.jena.sparql.algebra.op.OpMinus;
+import org.apache.jena.sparql.algebra.op.OpProject;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.core.VarExprList;
 import org.apache.jena.sparql.engine.binding.Binding;
@@ -35,6 +41,8 @@ import java.util.stream.Collectors;
 //TODO could possibly use WalkerVisitor (to visit both Ops and Exprs in the same class)
 public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
+    private String defaultGraphCollectionOrVarName;
+
     //Aql query can be made of a sequence of "subqueries" and assignments, hence the list
     private List<Op> _aqlAlgebraQueryExpression;
 
@@ -44,7 +52,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         return _aqlAlgebraQueryExpression;
     }
 
-    private int forLoopCounter = 0;
+    private VariableGenerator forLoopVarGenerator = new VariableGenerator("forloop", "item");
+    private VariableGenerator assignementVarGenerator = new VariableGenerator("assign", "item");
 
     //Keep track of which variables have already been bound (or not if optional), by mapping ARQ algebra op hashcode to the list of vars
     private Map<Integer, List<String>> sparqlVariablesByOp = new HashMap<>();
@@ -52,14 +61,47 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     //TODO could use Stack or LinkedList instead if necessary
     private List<Op> createdAqlOps = new ArrayList<>();
 
+    public ArqToAqlAlgebraVisitor(List<String> defaultGraphNames, List<String> namedGraphs){
+        if(defaultGraphNames.size() == 0){
+            defaultGraphCollectionOrVarName = ArangoDatabaseSettings.rdfCollectionName;
+        }
+        else{
+            String forLoopItemName = forLoopVarGenerator.getNew();
+            Op forloopOp = new OpFor(forLoopItemName, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.rdfCollectionName));
+            //add filter conds to get only triples in the specified graphs
+            ExprList filterConditions = new ExprList();
+            for(String graphName: defaultGraphNames){
+                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopItemName, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE)), new Const_String(graphName)));
+            }
+
+            forloopOp = new com.aql.algebra.operators.OpFilter(filterConditions, forloopOp);
+            forloopOp = new com.aql.algebra.operators.OpProject(forloopOp, com.aql.algebra.expressions.Var.alloc(forLoopItemName), false);
+
+            //add LET stmt to query so we can use this variable containing all triples in the default graph
+            String defaultGraphVarName = "defaultGraph";
+            _aqlAlgebraQueryExpression.add(new OpAssign(defaultGraphVarName, forloopOp));
+            defaultGraphCollectionOrVarName = defaultGraphVarName;
+        }
+
+        for(String ng: namedGraphs){
+            //TODO add let stmt for each named graph? or one let stmt with all named graphs together?
+        }
+    }
+
     private void AddSparqlVariablesByOp(Integer opHashCode, List<String> variables){
-        List<String> currUsedVars = sparqlVariablesByOp.get(opHashCode);
+        List<String> currUsedVars = GetSparqlVariablesByOp(opHashCode);
         if(currUsedVars == null) {
             sparqlVariablesByOp.put(opHashCode, variables);
         }
         else {
+            //do not re-add variables that are already in the list
+            variables.removeAll(currUsedVars);
             currUsedVars.addAll(variables);
         }
+    }
+
+    private void SetSparqlVariablesByOp(Integer opHashCode, List<String> variables){
+        sparqlVariablesByOp.put(opHashCode, variables);
     }
 
     private List<String> GetSparqlVariablesByOp(Integer opHashCode){
@@ -72,25 +114,32 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     //TODO consider creating new OpNest operator that shows that some subqueries are nested in another
     //TODO consider the possibility of replacing BGP with more than 1 triple pattern into multiple joins of triple patterns (remove bgps)
-    //each Triple should maybe be translated into a custom OpLoop operator in AQL
     @Override
-    public void visit(OpBGP opBpg){
+    public void visit(OpBGP opBgp){
+        if(opBgp instanceof OpGraphBGP){
+            OpGraphBGP graphBGP = (OpGraphBGP) opBgp;
+            Node graphNode = graphBGP.getGraphNode();
+            if(graphNode.isVariable()){
+                //TODO bind it below
+            }
+            //TODO add extra filters or assignment
+        }
+
         OpNesting currAqlOp = null;
-        for(Triple triple : opBpg.getPattern().getList()){
-            List<String> usedVars = GetSparqlVariablesByOp(opBpg.hashCode());
+        List<String> usedVars = new ArrayList<>();
+        for(Triple triple : opBgp.getPattern().getList()){
             //keep list of FILTER clauses per triple
             ExprList filterConditions = new ExprList();
             //keep list of LET clauses per triple
             List<com.aql.algebra.operators.OpAssign> assignments = new ArrayList<>();
 
-            String iterationVar = getNewVarName();
+            String iterationVar = forLoopVarGenerator.getNew();
             Op aqlOp = new OpFor(iterationVar, com.aql.algebra.expressions.Var.alloc("collectionOrVarName_here"));
 
             ProcessTripleNode(triple.getSubject(), NodeRole.SUBJECT, aqlOp, iterationVar, filterConditions, assignments, usedVars);
             ProcessTripleNode(triple.getPredicate(), NodeRole.PREDICATE, aqlOp, iterationVar, filterConditions, assignments, usedVars);
             ProcessTripleNode(triple.getObject(), NodeRole.OBJECT, aqlOp, iterationVar, filterConditions, assignments, usedVars);
-            //add used vars to list
-            AddSparqlVariablesByOp(opBpg.hashCode(), usedVars);
+
             com.aql.algebra.operators.OpFilter filterOp = new com.aql.algebra.operators.OpFilter(filterConditions, aqlOp);
             if(assignments.size() > 0){
                 filterOp.addNestedOps(assignments);
@@ -104,6 +153,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             }
         }
 
+        //add used vars in bgp to list
+        SetSparqlVariablesByOp(opBgp.hashCode(), usedVars);
         createdAqlOps.add(currAqlOp);
     }
 
@@ -125,39 +176,53 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     public void visit(OpJoin opJoin){
         System.out.println("Entering join");
         Op opToJoin1 = createdAqlOps.get(0);
-        String letName1 = getNewVarName();
+        String letName1 = assignementVarGenerator.getNew();
         //TODO have to add project to op before using assign
+
+        //TODO insert let stmt in aql query before the join loop
         com.aql.algebra.operators.OpAssign let1 = new com.aql.algebra.operators.OpAssign(letName1, opToJoin1);
 
-        String forLoopName1 = getNewVarName();
+        String forLoopName1 = forLoopVarGenerator.getNew();
         OpNesting forLoop1 = new OpFor(forLoopName1, com.aql.algebra.expressions.Var.alloc(letName1));
 
-        //TODO if one side of the join is a table, cater for that..
+        //if one side of the join is a table, cater for that
         if(opJoin.getLeft() instanceof OpTable){
             //TODO possibly instead of passing forloop var name directly to methods for usage, put a placeholder and then replace
             // all placeholders with the actual variable names after whole query construction (by keeping a map of varname to op)
             OpTable opTable = (OpTable) opJoin.getLeft();
+
+            //List<String> varsToProject = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
+            //TODO we need to know the name of the for loop var in the opToJoin
+            //new com.aql.algebra.operators.OpProject()
             forLoop1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), forLoopName1), forLoop1);
+            SetSparqlVariablesByOp(opJoin.hashCode(), GetSparqlVariablesByOp(opJoin.getRight().hashCode()));
             createdAqlOps.set(0, forLoop1);
         }
         else if(opJoin.getRight() instanceof OpTable){
             OpTable opTable = (OpTable) opJoin.getRight();
             forLoop1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), forLoopName1), forLoop1);
+            SetSparqlVariablesByOp(opJoin.hashCode(), GetSparqlVariablesByOp(opJoin.getLeft().hashCode()));
             createdAqlOps.set(0, forLoop1);
         }
         else{
             //use list of common variables between the resulting "bgps" that must be joined
-            List<String> commonVars = sparqlVariablesByOp.get(opJoin.getLeft().hashCode());
-            commonVars.retainAll(sparqlVariablesByOp.get(opJoin.getRight().hashCode()));
+            List<String> leftsideVars = GetSparqlVariablesByOp(opJoin.getLeft().hashCode());
+            AddSparqlVariablesByOp(opJoin.hashCode(), leftsideVars);
+            List<String> rightsideVars = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
+            AddSparqlVariablesByOp(opJoin.hashCode(), rightsideVars);
+
+            List<String> commonVars = leftsideVars;
+            commonVars.retainAll(rightsideVars);
+
             //OR use ATTRIBUTES function in AQL over both of them to join on the common attrs found
             //and create a FILTER statement with them and then merge variables in both
 
             Op opToJoin2 = createdAqlOps.get(1);
-            String letName2 = getNewVarName();
+            String letName2 = assignementVarGenerator.getNew();
             //TODO have to add project to op before using assign
             com.aql.algebra.operators.OpAssign let2 = new com.aql.algebra.operators.OpAssign(letName2, opToJoin2);
 
-            String forLoopName2 = getNewVarName();
+            String forLoopName2 = forLoopVarGenerator.getNew();
             Op forLoop2 = new OpFor(forLoopName2, com.aql.algebra.expressions.Var.alloc(letName2));
 
             ExprList filtersExprs = new ExprList();
@@ -170,6 +235,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             createdAqlOps.set(0, forLoop1);
             createdAqlOps.remove(1);
 
+            //TODO add used vars in join to sparqlVariablesByOp
+            //TODO
             //System.out.println("RETURN { var1 = left_side.var1, var2 = leftside.var2, var3 = rightside.var3}");
         }
     }
@@ -180,13 +247,14 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //TODO take array results of left and right subqueries
         //add a filter on the right side results to make sure common variables match to those on the left,
         //opLeftJoin.getExprs();
-        new OpFor(getNewVarName(), com.aql.algebra.expressions.Var.alloc("left_results"));
-        String subqueryVar = getNewVarName();
-        Op subquery = new OpFor(getNewVarName(), com.aql.algebra.expressions.Var.alloc("right_results"));
+        String outerLoopVarName = forLoopVarGenerator.getNew();
+        new OpFor(outerLoopVarName, com.aql.algebra.expressions.Var.alloc("left_results"));
+        String subqueryVar = forLoopVarGenerator.getNew();
+        Op subquery = new OpFor(subqueryVar, com.aql.algebra.expressions.Var.alloc("right_results"));
         ExprList filterExprs = new ExprList();
-        //TODO add common filter exprs here
+        //TODO add common filter exprs here - use var names created
         subquery = com.aql.algebra.operators.OpFilter.filterBy(filterExprs, subquery);
-        subquery = new com.aql.algebra.operators.OpProject(subquery, com.aql.algebra.expressions.Var.alloc(subqueryVar));
+        subquery = new com.aql.algebra.operators.OpProject(subquery, com.aql.algebra.expressions.Var.alloc(subqueryVar), false);
         new com.aql.algebra.operators.OpAssign("filtered_right_side", subquery);
 
         Op subquery2 = new OpFor("right_result_to_join", new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(com.aql.algebra.expressions.Var.alloc("filtered_right_side")), new Const_Number(0)), com.aql.algebra.expressions.Var.alloc("filtered_right_side"), new Const_Array()));
@@ -195,6 +263,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //subquery2 = new com.aql.algebra.operators.OpProject(subquery2, new VarExpr());
         //System.out.println("FOR right_result_to_join IN (LENGTH(filtered_right_side) > 0 ? filtered_right_side : [{}])");
         //System.out.println("RETURN { left: x, right: right_result_to_join}");
+        //TODO consider using MERGE function...
     }
 
     @Override
@@ -210,75 +279,77 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpFilter opFilter){
-        //TODO add filter operator over current op
+        //add filter operator over current op TODO should we apply this over the outer loop or nested within...
+        int currOpIndex = createdAqlOps.size()-1;
+        Op currOp = createdAqlOps.get(currOpIndex);
         //iterate over expressions, add filter conditions in AQL format to list for concatenating later
         ExprList filterConds = new ExprList();
         for(Iterator<Expr> i = opFilter.getExprs().iterator(); i.hasNext();){
             filterConds.add(ProcessExpr(i.next()));
         }
+
+        createdAqlOps.set(currOpIndex, new com.aql.algebra.operators.OpFilter(filterConds, currOp));
     }
 
     @Override
     public void visit(OpExtend opExtend){
-        //TODO nest assignments into current op
-        List<String> extendExpressions = new ArrayList<>();
+        int currOpIndex = createdAqlOps.size()-1;
+        Op currOp = createdAqlOps.get(currOpIndex);
+
         VarExprList varExprList = opExtend.getVarExprList();
-        varExprList.forEachVarExpr((v,e) -> extendExpressions.add("LET " + v.getVarName() + " = " + RewritingUtils.ProcessExpr(e)));
+
+        List<com.aql.algebra.operators.OpAssign> assignmentExprs = new ArrayList<>();
+        varExprList.forEachVarExpr((v,e) -> assignmentExprs.add(new com.aql.algebra.operators.OpAssign(v.getVarName(), ProcessExpr(e))));
+        //TODO nest assignments into current op
+
+        //add variables to sparqlVariablesByOp
+        List<String> varList = new ArrayList<>();
+        varExprList.forEachVar(v -> varList.add(v.getName()));
+        AddSparqlVariablesByOp(opExtend.getSubOp().hashCode(), varList);
     }
 
     @Override
     public void visit(OpUnion opUnion){
         //TODO how we perform this operation depends if the union is between subqueries that have a projection or not
         //TODO get the subquery for the left and right of the union
-        String varname = getNewVarName();
-        System.out.print("LET unionResult = UNION(left_result_here, right_result_here)");
-        //com.aql.algebra.operators.OpAssign letStmt = new com.aql.algebra.operators.OpAssign(varname,  );
-    }
-
-    //TODO such operator not supported in AQL.. needs to be replaced with a filter..
-    @Override
-    public void visit(OpGraph opGraph){
-        //TODO Add extra filter condition to list of filter clauses when we have one..
-        // ACTUALLY - best option would be to use a transformer to move the graph operator down over every bgp or every triple (quad form) in its subtree and then remove this outer one
-        Node graphNode = opGraph.getNode();
-        if(graphNode.isVariable()){
-            String forloopvarname = "forloop" + forLoopCounter + "item";
-            //else here bind the variable.. maybe we can call Visit(OpExtend) instead here by replacing it?
-            System.out.println("LET " + graphNode.getName() + " = " + forloopvarname + ".g");
-        }
-        else if(graphNode.isURI()){
-            System.out.println("FILTER item_name_here.g = " + graphNode.getURI());
-        }
+        String varname = assignementVarGenerator.getNew();
+        //System.out.print("LET unionResult = UNION(left_result_here, right_result_here)");
+        com.aql.algebra.operators.OpAssign letStmt = new com.aql.algebra.operators.OpAssign(varname, new Expr_Union(com.aql.algebra.expressions.Var.alloc("left_result_here"), com.aql.algebra.expressions.Var.alloc("right_result_here")));
     }
 
     @Override
     public void visit(OpProject opProject){
-        String collectStmt = "";
-        String returnStatement = "RETURN ";
+        boolean useDistinct = false;
+
+        int currOpIndex = createdAqlOps.size()-1;
+        Op projectionSubOp = createdAqlOps.get(currOpIndex);
         List<Var> projectableVars = opProject.getVars();
 
         if(opProject instanceof OpDistinctProject){
             if(projectableVars.size() == 1){
-                returnStatement += "DISTINCT ";
+                useDistinct = true;
             }
             else{
                 //SELECT DISTINCT WITH >1 VAR = COLLECT in AQL... consider mentioning this in thesis writeup in AQL algebra
-                collectStmt = "COLLECT ";
+                com.aql.algebra.expressions.VarExprList varExprList = new com.aql.algebra.expressions.VarExprList();
                 for(Var v: projectableVars){
                     //Add each var to collect clause
                     //TODO remember that when assigning it we have to use for loop over the query results and use the forloop item name
-                    collectStmt += v.getVarName() + " = " + v.getVarName();
-                    if(projectableVars.get(projectableVars.size()-1) != v)
-                        collectStmt += ", ";
+                    com.aql.algebra.expressions.Var aqlVar = com.aql.algebra.expressions.Var.alloc(v.getVarName());
+                    com.aql.algebra.expressions.Expr varExpr = new Expr_Equals(aqlVar, aqlVar);
+                    varExprList.add(aqlVar, varExpr);
                 }
-                collectStmt += "\n";
+
+                //apply collect stmt over current projectionSubOp
+                projectionSubOp = new OpCollect(projectionSubOp, varExprList, null);
             }
         }
 
-        String delimitedVariables = projectableVars.stream().map(v -> v.getVarName())
-                .collect(Collectors.joining( ", " ));
-        returnStatement += delimitedVariables;
-        System.out.println(collectStmt + returnStatement);
+        List<com.aql.algebra.expressions.Expr> returnVariables = projectableVars.stream().map(v -> com.aql.algebra.expressions.Var.alloc(v.getVarName()))
+                .collect(Collectors.toList());
+
+        Op returnStmt = new com.aql.algebra.operators.OpProject(projectionSubOp, returnVariables, useDistinct);
+        createdAqlOps.set(currOpIndex, returnStmt);
     }
 
     @Override
@@ -297,80 +368,23 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         System.out.println("SORT " + String.join(", ", conditions));
     }
 
-    /*@Override
-    public void visit(OpDistinct opDistinct){
-        //or if we have more than one distinct variable we need to use COLLECT
-        if(opDistinct.getSubOp() instanceof OpProject){
-            OpProject projectNode = (OpProject) opDistinct.getSubOp();
-            if(projectNode.getVars().size() == 1){
-                //add distinct to return statement
-            }
-        }
-        //one option is to keep a list of projected variables in this class, check if the num of vars is 1, in which case
-        //use RETURN DISTINCT, else introduce COLLECT statement
-    }*/
-
-    //New visit method for my custom OpDistinctProject class
-    /*public void visit(OpDistinctProject opDistinctProject){
-        System.out
-    }*/
-
     @Override
     public void visit(OpGroup opGroup){
         //TODO group, and consider mathematical expressions
-        //String collectStmt = "COLLECT ";
         List<String> collectClauses = new ArrayList<>();
         VarExprList varExprList = opGroup.getGroupVars();
         varExprList.forEachVarExpr((v,e) -> collectClauses.add(v.getVarName() + " = " + RewritingUtils.ProcessExpr(e)));
-        //System.out.println(collectStmt);
     }
 
     @Override
     public void visit(OpSlice opSlice){
-        Long offset = opSlice.getStart();
-        Long limit = opSlice.getLength();
+        int currOpIndex = createdAqlOps.size()-1;
+        Op currOp = createdAqlOps.get(currOpIndex);
 
-        if(offset < 1){
-            System.out.println("LIMIT " + limit);
-            return;
-        }
-
-        System.out.println("LIMIT " + offset + ", " + limit);
+        createdAqlOps.set(currOpIndex, new OpLimit(currOp, opSlice.getStart(), opSlice.getLength()));
     }
-
-    /*@Override
-    public void visit(OpTopN opTopN){
-        //this operator is only present if we use TransformTopN optimizer to change from OpSlice to OpTopN..
-        //This operator contains limit + order by for better performance
-        //https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/algebra/op/OpTopN.html
-
-        List<SortCondition> sortConditionList = opTopN.getConditions();
-        String[] conditions = new String[sortConditionList.size()];
-
-        for (int i= 0; i < sortConditionList.size(); i++) {
-            SortCondition currCond = sortConditionList.get(i);
-            //direction = 1 if ASC, -1 if DESC, -2 if unspecified (default asc)
-            String direction = currCond.getDirection() == -1 ? "DESC" : "ASC";
-            conditions[i] = currCond.getExpression() + " " + direction;
-        }
-
-        System.out.println("SORT " + String.join(", ", conditions));
-
-        System.out.println("LIMIT " + opTopN.getLimit());
-    }*/
-
-    /*public void visit(OpTable opTable){
-        //TODO I think we need to add a filter clause such as (?var1 = val_1 && ?var2 = val_2) || (?var1 = val_3 && ?var2 = val_3) etc...
-        //If we have a join to a table.. we could skip processing this operator and process it in the join.. might be more efficient actually then having to process it at both points
-        RewritingUtils.ProcessBindingsTable(opTable.getTable());
-    }*/
 
     //TODO decide whether to add visit methods for OpList, OpPath and others.. or whether they'll be unsupported
-
-    private String getNewVarName(){
-        forLoopCounter++;
-        return "forloop" + forLoopCounter + "item";
-    }
 
     public static void ProcessTripleNode(Node node, NodeRole role, Op currOp, String forLoopVarName, ExprList filterConditions, List<com.aql.algebra.operators.OpAssign> assignments, List<String> usedVars){
         String attributeName;

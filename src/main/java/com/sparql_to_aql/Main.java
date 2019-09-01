@@ -2,13 +2,12 @@ package com.sparql_to_aql;
 
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
+import com.sparql_to_aql.entities.algebra.transformers.OpGraphTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
 import org.apache.commons.cli.*;
+import org.apache.jena.atlas.lib.Alg;
 import org.apache.jena.query.*;
-import org.apache.jena.sparql.algebra.Algebra;
-import org.apache.jena.sparql.algebra.Op;
-import org.apache.jena.sparql.algebra.OpWalker;
-import org.apache.jena.sparql.algebra.Transformer;
+import org.apache.jena.sparql.algebra.*;
 import org.apache.jena.sparql.algebra.optimize.TransformFilterImplicitJoin;
 import org.apache.jena.sparql.algebra.optimize.TransformJoinStrategy;
 import org.apache.jena.sparql.algebra.optimize.TransformPattern2Join;
@@ -48,8 +47,8 @@ public class Main {
             System.out.println("getting graphs");
 
             //testing how to get FROM and FROM NAMED uris
-            query.getNamedGraphURIs().forEach(f-> System.out.println(f)); //get all FROM NAMED uris
-            query.getGraphURIs().forEach(f-> System.out.println(f)); //get all FROM uris (forming default graph)
+            //query.getNamedGraphURIs().forEach(f-> System.out.println(f)); //get all FROM NAMED uris
+            //query.getGraphURIs().forEach(f-> System.out.println(f)); //get all FROM uris (forming default graph)
 
             System.out.println("generating algebra");
             Op op = Algebra.compile(query);
@@ -57,6 +56,10 @@ public class Main {
             System.out.println("writing algebra");
 
             SSE.write(op);
+
+            //TODO use below to get query back to SPARQL query form
+            //Query queryForm = OpAsQuery.asQuery(op);
+            //System.out.println(query.serialize());
 
             System.out.println("initial validation and optimization of algebra");
             //TODO consider performing an initial walk over the tree to immediately notify the user if it contains unsupported ops.
@@ -67,16 +70,21 @@ public class Main {
             //op = Algebra.toQuadForm(op);
             //TODO TransformPattern2Join is useful if we want to process all triples seperately instead of as BGPs
             // however not having triples in the same bgp nested in the same subquery will make it slower..I think..
-            op = Transformer.transform(new TransformPattern2Join(), op);
+            //op = Transformer.transform(new TransformPattern2Join(), op);
             op = Transformer.transform(new OpDistinctTransformer(), op);
 
             //transformer to use if we're gonna remove REDUCED from a query and just do a normal project
             op = Transformer.transform(new OpReducedTransformer(), op);
 
+            //transformer to use to combine graph and its nested bgp into one operator
+            op = Transformer.transform(new OpGraphTransformer(), op);
+
             //TODO consider also these existing transformers:
             //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment
             SSE.write(op);
-            OpWalker.walk(op, new RewritingOpVisitor());
+            OpWalker.walk(op, new ArqToAqlAlgebraVisitor(query.getGraphURIs(), query.getNamedGraphURIs()));
+
+            //OpWalker.walk(op, new RewritingOpVisitor());
             //TODO use below walker once we're also using the expression walker.. or might have to extend WalkerVisitor instead..
             //Walker.walk(op, new WalkerVisitor(new RewritingOpVisitor(), new RewritingExprVisitor(), null, null));
             //TODO also consider using before and after visitors if we need them... we might

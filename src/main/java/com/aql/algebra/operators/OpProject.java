@@ -11,16 +11,20 @@ public class OpProject extends OpModifier {
 
     private List<Expr> exprs = new ArrayList<>();
 
-    public OpProject(Op subOp, List<Expr> exprs)
+    private boolean distinct;
+
+    public OpProject(Op subOp, List<Expr> exprs, boolean distinct)
     {
         super(subOp);
         this.exprs = exprs;
+        this.distinct = distinct;
     }
 
-    public OpProject(Op subOp, Expr expr)
+    public OpProject(Op subOp, Expr expr, boolean distinct)
     {
         super(subOp);
         this.exprs.add(expr);
+        this.distinct = distinct;
     }
 
     public List<Expr> getExprs() { return exprs; }
@@ -30,7 +34,7 @@ public class OpProject extends OpModifier {
     @Override
     public void visit(OpVisitor opVisitor)  { opVisitor.visit(this); }
     @Override
-    public Op1 copy(Op subOp)                { return new OpProject(subOp, exprs); }
+    public Op1 copy(Op subOp)                { return new OpProject(subOp, exprs, distinct); }
 
     /*@Override
     public Op apply(Transform transform, Op subOp)

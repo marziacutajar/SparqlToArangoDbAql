@@ -1,6 +1,6 @@
 package com.aql.algebra.expressions;
 
-public class ExprVar {
+public class ExprVar extends Expr{
     protected Var var = null;
 
     public ExprVar(String name) { var = Var.alloc(name); }

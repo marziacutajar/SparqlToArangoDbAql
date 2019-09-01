@@ -280,7 +280,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpFilter opFilter){
-        //add filter operator over current op TODO should we apply this over the outer loop or nested within...
+        //add filter operator over current op
         int currOpIndex = createdAqlOps.size()-1;
         Op currOp = createdAqlOps.get(currOpIndex);
         //iterate over expressions, add filter conditions in AQL format to list for concatenating later
@@ -355,18 +355,19 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpOrder opOrder) {
-        //TODO use LET = the whole query, then add sort on it and return every row
         List<SortCondition> sortConditionList = opOrder.getConditions();
-        String[] conditions = new String[sortConditionList.size()];
+        List<com.aql.algebra.SortCondition> aqlSortConds = new ArrayList<>();
 
         for (int i= 0; i < sortConditionList.size(); i++) {
             SortCondition currCond = sortConditionList.get(i);
             //direction = 1 if ASC, -1 if DESC, -2 if unspecified (default asc)
-            String direction = currCond.getDirection() == -1 ? "DESC" : "ASC";
-            conditions[i] = currCond.getExpression() + " " + direction;
+            com.aql.algebra.SortCondition.Direction direction = currCond.getDirection() == -1 ? com.aql.algebra.SortCondition.Direction.DESC : com.aql.algebra.SortCondition.Direction.ASC;
+            //TODO here we're assuming expr is definitely a variable.. might need changing
+            aqlSortConds.add(new com.aql.algebra.SortCondition(com.aql.algebra.expressions.Var.alloc(currCond.getExpression().getVarName()), direction));
         }
 
-        System.out.println("SORT " + String.join(", ", conditions));
+        //TODO pass current op to sort instead of null
+        OpSort aqlSort = new OpSort(null, aqlSortConds);
     }
 
     @Override
@@ -405,12 +406,14 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         }
 
         //We can have a mixture of LET and FILTER statements after each other - refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
+        //IMP: in ARQ query expression, blank nodes are represented as variables ??0, ??1 etc.. and an Invalid SPARQL query error is given if same blank node is used in more than one subquery
         if(node.isVariable()) {
+            System.out.println("VAR: " + node.getName());
             String var_name = node.getName();
             if(usedVars.contains(var_name)){
                 //node was already bound in another triple, add a filter condition instead
-                //TODO we might have to use AQL MATCHES function here to make sure objects are identical
-                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName,attributeName)), com.aql.algebra.expressions.Var.alloc(var_name)));
+                //TODO we might have to use ATTRIBUTES function here to make sure objects are identical by iterating over each attribute and checking they are equal
+                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName)), com.aql.algebra.expressions.Var.alloc(var_name)));
             }
             else {
                 assignments.add(new com.aql.algebra.operators.OpAssign(node.getName(), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName))));
@@ -421,15 +424,6 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         else if(node.isURI()){
             filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));
             filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName, ArangoAttributes.VALUE)), new Const_String(node.getURI())));
-        }
-        else if(node.isBlank()){
-            //blank nodes act as variables, not much difference other than that the same blank node label cannot be used
-            //in two different basic graph patterns in the same query. But it's unclear whether blank nodes can still be projecte... maybe consider that they aren't for this impl
-            //indicated by either the label form, such as "_:abc", or the abbreviated form "[]"
-            //TODO if blank node doesn't have label, use node.getBlankNodeId();
-            System.out.println("ID " + node.getBlankNodeId());
-            //TODO also check that blank node label wasn't already used in some other graph pattern
-            assignments.add(new com.aql.algebra.operators.OpAssign(node.getBlankNodeLabel(), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName))));
         }
         else if(node.isLiteral()){
             ProcessLiteralNode(node, forLoopVarName, filterConditions);

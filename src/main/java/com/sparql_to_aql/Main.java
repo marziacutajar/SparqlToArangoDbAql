@@ -1,19 +1,13 @@
 package com.sparql_to_aql;
 
+import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpGraphTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
 import org.apache.commons.cli.*;
-import org.apache.jena.atlas.lib.Alg;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
-import org.apache.jena.sparql.algebra.optimize.TransformFilterImplicitJoin;
-import org.apache.jena.sparql.algebra.optimize.TransformJoinStrategy;
-import org.apache.jena.sparql.algebra.optimize.TransformPattern2Join;
-import org.apache.jena.sparql.algebra.optimize.TransformTopN;
-import org.apache.jena.sparql.algebra.walker.Walker;
-import org.apache.jena.sparql.algebra.walker.WalkerVisitor;
 import org.apache.jena.sparql.sse.SSE;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -57,9 +51,9 @@ public class Main {
 
             SSE.write(op);
 
-            //TODO use below to get query back to SPARQL query form
+            //TODO below is used to get query back to SPARQL query form - create something similar for changing AQL query expression tree into string form
             //Query queryForm = OpAsQuery.asQuery(op);
-            //System.out.println(query.serialize());
+            //System.out.println(queryForm.serialize());
 
             System.out.println("initial validation and optimization of algebra");
             //TODO consider performing an initial walk over the tree to immediately notify the user if it contains unsupported ops.
@@ -93,7 +87,7 @@ public class Main {
 
             System.out.println("execute generated AQL query on ArangoDb");
             //TODO refer to https://www.arangodb.com/tutorials/tutorial-sync-java-driver/
-            //new ArangoDbClient().execQuery(dbname_here, query_here);
+            //new ArangoDbClient().execQuery(ArangoDatabaseSettings.databaseName, aqlQuery_here);
         }
         catch(IOException e){
             System.out.println("File not found.");

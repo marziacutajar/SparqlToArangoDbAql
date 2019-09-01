@@ -46,6 +46,9 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     //Aql query can be made of a sequence of "subqueries" and assignments, hence the list
     private List<Op> _aqlAlgebraQueryExpression;
 
+    List<String> defaultGraphNames;
+    List<String> namedGraphNames;
+
     //This method is to be called after the visitor has been used
     public List<Op> GetAqlAlgebraQueryExpression()
     {
@@ -62,30 +65,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     private List<Op> createdAqlOps = new ArrayList<>();
 
     public ArqToAqlAlgebraVisitor(List<String> defaultGraphNames, List<String> namedGraphs){
-        if(defaultGraphNames.size() == 0){
-            defaultGraphCollectionOrVarName = ArangoDatabaseSettings.rdfCollectionName;
-        }
-        else{
-            String forLoopItemName = forLoopVarGenerator.getNew();
-            Op forloopOp = new OpFor(forLoopItemName, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.rdfCollectionName));
-            //add filter conds to get only triples in the specified graphs
-            ExprList filterConditions = new ExprList();
-            for(String graphName: defaultGraphNames){
-                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopItemName, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE)), new Const_String(graphName)));
-            }
-
-            forloopOp = new com.aql.algebra.operators.OpFilter(filterConditions, forloopOp);
-            forloopOp = new com.aql.algebra.operators.OpProject(forloopOp, com.aql.algebra.expressions.Var.alloc(forLoopItemName), false);
-
-            //add LET stmt to query so we can use this variable containing all triples in the default graph
-            String defaultGraphVarName = "defaultGraph";
-            _aqlAlgebraQueryExpression.add(new OpAssign(defaultGraphVarName, forloopOp));
-            defaultGraphCollectionOrVarName = defaultGraphVarName;
-        }
-
-        for(String ng: namedGraphs){
-            //TODO add let stmt for each named graph? or one let stmt with all named graphs together?
-        }
+        this.defaultGraphNames = defaultGraphNames;
+        this.namedGraphNames = namedGraphs;
     }
 
     private void AddSparqlVariablesByOp(Integer opHashCode, List<String> variables){
@@ -116,17 +97,17 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     //TODO consider the possibility of replacing BGP with more than 1 triple pattern into multiple joins of triple patterns (remove bgps)
     @Override
     public void visit(OpBGP opBgp){
+        boolean bgpWithGraphNode = false;
+        Node graphNode = null;
         if(opBgp instanceof OpGraphBGP){
+            bgpWithGraphNode = true;
             OpGraphBGP graphBGP = (OpGraphBGP) opBgp;
-            Node graphNode = graphBGP.getGraphNode();
-            if(graphNode.isVariable()){
-                //TODO bind it below
-            }
-            //TODO add extra filters or assignment
+            graphNode = graphBGP.getGraphNode();
         }
 
         OpNesting currAqlOp = null;
         List<String> usedVars = new ArrayList<>();
+        boolean firstTripleBeingProcessed = true;
         for(Triple triple : opBgp.getPattern().getList()){
             //keep list of FILTER clauses per triple
             ExprList filterConditions = new ExprList();
@@ -134,7 +115,38 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             List<com.aql.algebra.operators.OpAssign> assignments = new ArrayList<>();
 
             String iterationVar = forLoopVarGenerator.getNew();
-            Op aqlOp = new OpFor(iterationVar, com.aql.algebra.expressions.Var.alloc("collectionOrVarName_here"));
+            Op aqlOp = new OpFor(iterationVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.rdfCollectionName));
+
+            //using this variable, we will make sure the graph name of every triple matching the BGP is in the same graph
+            String outerGraphVarToMatch = AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);
+
+            //if this is the first for loop and there are named graphs specified, add filters for those named graphs
+            if(firstTripleBeingProcessed){
+                if(bgpWithGraphNode){
+                    if(graphNode.isVariable()){
+                        AddGraphFilters(namedGraphNames, iterationVar, filterConditions);
+
+                        //bind graph var
+                        String boundGraphVarName = graphNode.getName();
+                        assignments.add(new com.aql.algebra.operators.OpAssign(boundGraphVarName, com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME))));
+                        usedVars.add(boundGraphVarName);
+                    }
+                    else{
+                        //add filter with specific named graph
+                        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(outerGraphVarToMatch), new Const_String(graphNode.getURI())));
+                    }
+                }
+                else{
+                    //if there are default graphs specified, filter by those
+                    if(defaultGraphNames.size() > 0){
+                        AddGraphFilters(defaultGraphNames, iterationVar, filterConditions);
+                    }
+                }
+            }
+            else{
+                //make sure that graph name for consecutive triples matches the one of the first triple
+                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(outerGraphVarToMatch), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE))));
+            }
 
             ProcessTripleNode(triple.getSubject(), NodeRole.SUBJECT, aqlOp, iterationVar, filterConditions, assignments, usedVars);
             ProcessTripleNode(triple.getPredicate(), NodeRole.PREDICATE, aqlOp, iterationVar, filterConditions, assignments, usedVars);
@@ -151,6 +163,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             else {
                 currAqlOp.addNestedOp(filterOp);
             }
+
+            firstTripleBeingProcessed = false;
         }
 
         //add used vars in bgp to list
@@ -158,20 +172,6 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         createdAqlOps.add(currAqlOp);
     }
 
-    /*TODO consider the possibility of transforming all OpTriple instances to OpBgp so we can avoid repeating code and remove this visitor method.. or all OpBGPs to OpTriples
-    @Override
-    public void visit(OpTriple opTriple){
-        Triple triple = opTriple.getTriple();
-
-        System.out.println("TRIPLE HERE");
-    }*/
-
-    /*TODO decide if I need this
-    @Override
-    public void visit(OpQuad opQuad){
-    }*/
-
-    //TODO consider using transformer to remove joins completely if it's between bgps..
     @Override
     public void visit(OpJoin opJoin){
         System.out.println("Entering join");
@@ -179,6 +179,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         String letName1 = assignementVarGenerator.getNew();
         //TODO have to add project to op before using assign
 
+        //TODO BETTER TO NOT USE LET STMT AND JUST NEST BOTH QUERIES FOR PERFORMANCE... question is how to do it in code
         //TODO insert let stmt in aql query before the join loop
         com.aql.algebra.operators.OpAssign let1 = new com.aql.algebra.operators.OpAssign(letName1, opToJoin1);
 
@@ -512,6 +513,24 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         //TODO use an ExprVisitor here
         return test;
+    }
+
+    public void AddGraphFilters(List<String> graphNames, String forLoopVarName, ExprList filterConditions){
+        com.aql.algebra.expressions.Expr filterExpr = null;
+
+        //add filters for default or named graphs
+        for(String g: graphNames){
+            com.aql.algebra.expressions.Expr currExpr = new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE)), new Const_String(g));
+
+            if(filterExpr == null){
+                filterExpr = currExpr;
+            }
+            else{
+                filterExpr = new Expr_LogicalOr(filterExpr, currExpr);
+            }
+        }
+
+        filterConditions.add(filterExpr);
     }
 
 }

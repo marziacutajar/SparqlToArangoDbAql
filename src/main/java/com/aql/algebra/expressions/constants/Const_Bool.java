@@ -3,7 +3,7 @@ package com.aql.algebra.expressions.constants;
 import com.aql.algebra.expressions.Constant;
 
 public class Const_Bool extends Constant {
-    boolean bool = false;
+    private boolean bool = false;
 
     public Const_Bool(boolean b)         { super();  bool = b; }
 

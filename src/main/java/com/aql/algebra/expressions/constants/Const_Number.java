@@ -3,7 +3,7 @@ package com.aql.algebra.expressions.constants;
 import com.aql.algebra.expressions.Constant;
 
 public class Const_Number extends Constant {
-    double value = Double.NaN;
+    private double value = Double.NaN;
 
     public Const_Number(double d)         { super(); value = d; }
 

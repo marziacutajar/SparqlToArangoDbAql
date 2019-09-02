@@ -2,7 +2,7 @@ package com.aql.algebra.operators;
 
 import com.aql.algebra.OpVisitor;
 
-//TODO choose between using this op or using Op0Nesting/Op1Nesting...
+//TODO choose between using this op or using OpNesting...
 // personally I prefer the latter cause nesting isn't really an Op per se..
 public class OpNest extends Op2{
 

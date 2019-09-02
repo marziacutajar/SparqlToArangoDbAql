@@ -5,7 +5,6 @@ import com.aql.algebra.expressions.Expr;
 public class Expr_Union extends ExprFunctionN {
     private static final String functionName = "union";
 
-    //TODO union can also be between subqueries...
     public Expr_Union(Expr... exprs)
     {
         super(functionName, exprs);

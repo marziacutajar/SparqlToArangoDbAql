@@ -56,7 +56,6 @@ public class Main {
             //System.out.println(queryForm.serialize());
 
             System.out.println("initial validation and optimization of algebra");
-            //TODO consider performing an initial walk over the tree to immediately notify the user if it contains unsupported ops.
             //call any optimization transformers on the algebra tree
             //op = Algebra.optimize(op);
             //op = Transformer.transform(new TransformTopN(), op);

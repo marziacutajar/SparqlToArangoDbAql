@@ -27,6 +27,7 @@ import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.algebra.op.*;
 import org.apache.jena.sparql.algebra.op.OpExtend;
 import org.apache.jena.sparql.algebra.op.OpFilter;
+import org.apache.jena.sparql.algebra.op.OpJoin;
 import org.apache.jena.sparql.algebra.op.OpMinus;
 import org.apache.jena.sparql.algebra.op.OpProject;
 import org.apache.jena.sparql.core.Var;
@@ -41,7 +42,7 @@ import java.util.stream.Collectors;
 //TODO could possibly use WalkerVisitor (to visit both Ops and Exprs in the same class)
 public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
-    private String defaultGraphCollectionOrVarName;
+    //private String defaultGraphCollectionOrVarName;
 
     //Aql query can be made of a sequence of "subqueries" and assignments, hence the list
     private List<Op> _aqlAlgebraQueryExpression;
@@ -176,15 +177,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     public void visit(OpJoin opJoin){
         System.out.println("Entering join");
         Op opToJoin1 = createdAqlOps.get(0);
-        String letName1 = assignementVarGenerator.getNew();
-        //TODO have to add project to op before using assign
-
-        //TODO BETTER TO NOT USE LET STMT AND JUST NEST BOTH QUERIES FOR PERFORMANCE... question is how to do it in code
-        //TODO insert let stmt in aql query before the join loop
-        com.aql.algebra.operators.OpAssign let1 = new com.aql.algebra.operators.OpAssign(letName1, opToJoin1);
-
-        String forLoopName1 = forLoopVarGenerator.getNew();
-        OpNesting forLoop1 = new OpFor(forLoopName1, com.aql.algebra.expressions.Var.alloc(letName1));
+        //TODO BETTER TO NOT USE LET STMTS AND JUST NEST BOTH QUERIES FOR PERFORMANCE... question is how to do it in code
 
         //if one side of the join is a table, cater for that
         if(opJoin.getLeft() instanceof OpTable){
@@ -193,8 +186,6 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             OpTable opTable = (OpTable) opJoin.getLeft();
 
             //List<String> varsToProject = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
-            //TODO we need to know the name of the for loop var in the opToJoin
-            //new com.aql.algebra.operators.OpProject()
             forLoop1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), forLoopName1), forLoop1);
             SetSparqlVariablesByOp(opJoin.hashCode(), GetSparqlVariablesByOp(opJoin.getRight().hashCode()));
             createdAqlOps.set(0, forLoop1);
@@ -219,12 +210,6 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             //and create a FILTER statement with them and then merge variables in both
 
             Op opToJoin2 = createdAqlOps.get(1);
-            String letName2 = assignementVarGenerator.getNew();
-            //TODO have to add project to op before using assign
-            com.aql.algebra.operators.OpAssign let2 = new com.aql.algebra.operators.OpAssign(letName2, opToJoin2);
-
-            String forLoopName2 = forLoopVarGenerator.getNew();
-            Op forLoop2 = new OpFor(forLoopName2, com.aql.algebra.expressions.Var.alloc(letName2));
 
             ExprList filtersExprs = new ExprList();
             for (String commonVar: commonVars){
@@ -267,6 +252,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //TODO consider using MERGE function...
     }
 
+    //TODO what if instead of an OpMinus op in AQL we use a JOIN with not equals filter conditions??
     @Override
     public void visit(OpMinus opMinus){
         //call MINUS function on left and right sides, assign to a variable using LET
@@ -301,7 +287,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         List<com.aql.algebra.operators.OpAssign> assignmentExprs = new ArrayList<>();
         varExprList.forEachVarExpr((v,e) -> assignmentExprs.add(new com.aql.algebra.operators.OpAssign(v.getVarName(), ProcessExpr(e))));
-        //TODO nest assignments into current op
+        //nest assignments into current op or extend current op
+        new com.aql.algebra.operators.OpExtend(currOp, assignmentExprs);
 
         //add variables to sparqlVariablesByOp
         List<String> varList = new ArrayList<>();
@@ -408,7 +395,6 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //We can have a mixture of LET and FILTER statements after each other - refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
         //IMP: in ARQ query expression, blank nodes are represented as variables ??0, ??1 etc.. and an Invalid SPARQL query error is given if same blank node is used in more than one subquery
         if(node.isVariable()) {
-            System.out.println("VAR: " + node.getName());
             String var_name = node.getName();
             if(usedVars.contains(var_name)){
                 //node was already bound in another triple, add a filter condition instead

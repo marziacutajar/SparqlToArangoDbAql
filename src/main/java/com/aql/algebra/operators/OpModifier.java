@@ -1,6 +1,6 @@
 package com.aql.algebra.operators;
 
-//TODO consider extending Op1Nesting here
+//TODO consider extending OpNesting here
 public abstract class OpModifier extends Op1 {
 
     public static Op removeModifiers(Op op)

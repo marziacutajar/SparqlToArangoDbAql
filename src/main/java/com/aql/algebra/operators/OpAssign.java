@@ -27,10 +27,12 @@ public class OpAssign extends Op0{
     @Override
     public String getName() { return AqlConstants.keywordLet; }
 
-    //TODO
     @Override
     public Op0 copy(){
-        return null;
+        if(exprValue == null)
+            return new OpAssign(variableName, opValue);
+        else
+            return new OpAssign(variableName, exprValue);
     }
 
     @Override

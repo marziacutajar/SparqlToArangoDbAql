@@ -2,13 +2,25 @@ package com.aql.algebra.operators;
 
 import com.aql.algebra.OpVisitor;
 
-//TODO remove this if we're going to use OpNest or Op0Nesting/Op1Nesting
-public class OpExtend extends Op1{
-    //TODO consider: difference between this Op and OpAssign would be that OpExtend is used for nested LETs and OpAssign
-    // is used to assign the whole subOp passed to it into a variable
+import java.util.List;
 
-    public OpExtend(Op sub) {
+//TODO remove this if we're going to use OpNest or OpNesting
+//difference between this Op and OpAssign is that OpExtend is used for nested LETs and OpAssign
+//is used to assign a whole subOp or expression into a variable
+public class OpExtend extends Op1{
+
+    //TODO would make sense to keep a list of assignments instead of one, to reduce nested operations
+    private OpAssign assignment;
+    private List<OpAssign> assignments;
+
+    public OpExtend(Op sub, OpAssign assignment) {
         super(sub);
+        this.assignment = assignment;
+    }
+
+    public OpExtend(Op sub, List<OpAssign> assignments) {
+        super(sub);
+        this.assignments = assignments;
     }
 
     @Override
@@ -19,7 +31,7 @@ public class OpExtend extends Op1{
 
     @Override
     public Op1 copy(Op subOp){
-        return new OpExtend(subOp);
+        return new OpExtend(subOp, assignment);
     }
 
 }

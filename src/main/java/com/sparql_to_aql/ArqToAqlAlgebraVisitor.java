@@ -45,7 +45,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     //private String defaultGraphCollectionOrVarName;
 
     //Aql query can be made of a sequence of "subqueries" and assignments, hence the list
-    private List<Op> _aqlAlgebraQueryExpression;
+    private List<Op> _aqlAlgebraQueryExpressionTree;
 
     List<String> defaultGraphNames;
     List<String> namedGraphNames;
@@ -53,7 +53,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     //This method is to be called after the visitor has been used
     public List<Op> GetAqlAlgebraQueryExpression()
     {
-        return _aqlAlgebraQueryExpression;
+        return _aqlAlgebraQueryExpressionTree;
     }
 
     private VariableGenerator forLoopVarGenerator = new VariableGenerator("forloop", "item");
@@ -106,7 +106,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             graphNode = graphBGP.getGraphNode();
         }
 
-        OpNesting currAqlOp = null;
+        Op currAqlOp = null;
         List<String> usedVars = new ArrayList<>();
         boolean firstTripleBeingProcessed = true;
         for(Triple triple : opBgp.getPattern().getList()){
@@ -153,16 +153,16 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             ProcessTripleNode(triple.getPredicate(), NodeRole.PREDICATE, aqlOp, iterationVar, filterConditions, assignments, usedVars);
             ProcessTripleNode(triple.getObject(), NodeRole.OBJECT, aqlOp, iterationVar, filterConditions, assignments, usedVars);
 
-            com.aql.algebra.operators.OpFilter filterOp = new com.aql.algebra.operators.OpFilter(filterConditions, aqlOp);
+            Op filterOp = new com.aql.algebra.operators.OpFilter(filterConditions, aqlOp);
             if(assignments.size() > 0){
-                filterOp.addNestedOps(assignments);
+                filterOp = new com.aql.algebra.operators.OpExtend(filterOp, assignments);
             }
 
             if(currAqlOp == null) {
                 currAqlOp = filterOp;
             }
             else {
-                currAqlOp.addNestedOp(filterOp);
+                currAqlOp = new OpNest(currAqlOp, filterOp);
             }
 
             firstTripleBeingProcessed = false;
@@ -178,6 +178,9 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         System.out.println("Entering join");
         Op opToJoin1 = createdAqlOps.get(0);
         //TODO BETTER TO NOT USE LET STMTS AND JUST NEST BOTH QUERIES FOR PERFORMANCE... question is how to do it in code
+        // as if we do it with nesting we cant use let assignments to bind variables as there will be variable naming conflicts
+        // instead we'd need to keep a map of variable names and which object/attribute they are bound to
+        // this will decrease the query size!!!! we'll have less redundant assignments
 
         //if one side of the join is a table, cater for that
         if(opJoin.getLeft() instanceof OpTable){
@@ -185,16 +188,15 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             // all placeholders with the actual variable names after whole query construction (by keeping a map of varname to op)
             OpTable opTable = (OpTable) opJoin.getLeft();
 
-            //List<String> varsToProject = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
-            forLoop1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), forLoopName1), forLoop1);
+            opToJoin1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), "forloopVarName_here"), opToJoin1);
             SetSparqlVariablesByOp(opJoin.hashCode(), GetSparqlVariablesByOp(opJoin.getRight().hashCode()));
-            createdAqlOps.set(0, forLoop1);
+            createdAqlOps.set(0, opToJoin1);
         }
         else if(opJoin.getRight() instanceof OpTable){
             OpTable opTable = (OpTable) opJoin.getRight();
-            forLoop1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), forLoopName1), forLoop1);
+            opToJoin1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), "forloopVarName_here"), opToJoin1);
             SetSparqlVariablesByOp(opJoin.hashCode(), GetSparqlVariablesByOp(opJoin.getLeft().hashCode()));
-            createdAqlOps.set(0, forLoop1);
+            createdAqlOps.set(0, opToJoin1);
         }
         else{
             //use list of common variables between the resulting "bgps" that must be joined
@@ -213,12 +215,12 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
             ExprList filtersExprs = new ExprList();
             for (String commonVar: commonVars){
-                filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopName1, commonVar)), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopName2, commonVar))));
+                filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar("forLoopName1_here", commonVar)), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar("forLoopName2_here", commonVar))));
             }
 
             //nest one for loop in the other and add filter statements
-            forLoop1.addNestedOp(new com.aql.algebra.operators.OpFilter(filtersExprs, forLoop2));
-            createdAqlOps.set(0, forLoop1);
+            opToJoin1 = new OpNest(opToJoin1, new com.aql.algebra.operators.OpFilter(filtersExprs, opToJoin2));
+            createdAqlOps.set(0, opToJoin1);
             createdAqlOps.remove(1);
 
             //TODO add used vars in join to sparqlVariablesByOp
@@ -243,7 +245,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         subquery = new com.aql.algebra.operators.OpProject(subquery, com.aql.algebra.expressions.Var.alloc(subqueryVar), false);
         new com.aql.algebra.operators.OpAssign("filtered_right_side", subquery);
 
-        Op subquery2 = new OpFor("right_result_to_join", new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(com.aql.algebra.expressions.Var.alloc("filtered_right_side")), new Const_Number(0)), com.aql.algebra.expressions.Var.alloc("filtered_right_side"), new Const_Array()));
+        Op subquery2 = new OpFor("right_result_to_join", new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(com.aql.algebra.expressions.Var.alloc("filtered_right_side")), new Const_Number(0)), com.aql.algebra.expressions.Var.alloc("filtered_right_side"), new Const_Array(null)));
 
         //TODO do below
         //subquery2 = new com.aql.algebra.operators.OpProject(subquery2, new VarExpr());
@@ -398,7 +400,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             String var_name = node.getName();
             if(usedVars.contains(var_name)){
                 //node was already bound in another triple, add a filter condition instead
-                //TODO we might have to use ATTRIBUTES function here to make sure objects are identical by iterating over each attribute and checking they are equal
+                //TODO we might have to use ATTRIBUTES function here to make sure objects are identical by iterating over each attribute and checking they are equal..maybe not though.. look at below article
+                // https://www.arangodb.com/docs/stable/aql/fundamentals-type-value-order.html
                 filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName)), com.aql.algebra.expressions.Var.alloc(var_name)));
             }
             else {

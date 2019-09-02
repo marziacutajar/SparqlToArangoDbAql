@@ -1,6 +1,6 @@
 package com.aql.algebra.operators;
 
-public abstract class Op1 extends OpNesting implements Op {
+public abstract class Op1 implements Op {
     private Op sub;
 
     public Op1(Op subOp)

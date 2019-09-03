@@ -1,10 +1,14 @@
 package com.sparql_to_aql.utils;
 
+import com.aql.algebra.expressions.constants.Const_Bool;
+import com.aql.algebra.expressions.constants.Const_String;
+import com.aql.algebra.expressions.functions.Expr_Equals;
+import com.aql.algebra.expressions.functions.Expr_LogicalAnd;
+import com.aql.algebra.expressions.functions.Expr_LogicalOr;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.constants.RdfObjectTypes;
 import com.sparql_to_aql.constants.arangodb.AqlOperators;
-import org.apache.jena.base.Sys;
 import org.apache.jena.datatypes.RDFDatatype;
 import org.apache.jena.datatypes.xsd.impl.RDFLangString;
 import org.apache.jena.graph.Node;
@@ -12,15 +16,14 @@ import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.expr.*;
-import org.apache.jena.sparql.util.ExprUtils;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public class RewritingUtils {
-    public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, List<String> usedVars, List<String> filterConditions){
+    public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, String> boundVars){
         String attributeName;
+
+        Set<String> usedSparqlVars = boundVars.keySet();
 
         switch(role){
             case SUBJECT:
@@ -36,112 +39,97 @@ public class RewritingUtils {
                 throw new UnsupportedOperationException();
         }
 
-        //DEPENDS IF YOU CAN HAVE MIX OF LET AND FILTER AFTER EACH OTHER IN THE SAME FOR LOOP - I think so.. refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
+        //We can have a mixture of LET and FILTER statements after each other - refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
+        //IMP: in ARQ query expression, blank nodes are represented as variables ??0, ??1 etc.. and an Invalid SPARQL query error is given if same blank node is used in more than one subquery
+        String currAqlVarName = AqlUtils.buildVar(forLoopVarName, attributeName);
+
         if(node.isVariable()) {
             String var_name = node.getName();
-            if(usedVars.contains(var_name)){
+            if(usedSparqlVars.contains(var_name)){
                 //node was already bound in another triple, add a filter condition instead
-                //TODO we might have to use AQL MATCHES function here to make sure objects are identical
-                filterConditions.add(forLoopVarName + "." + attributeName + AqlOperators.EQUALS + var_name);
+                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(currAqlVarName), com.aql.algebra.expressions.Var.alloc(boundVars.get(var_name))));
             }
             else {
-                System.out.println("LET " + node.getName() + " = " + forLoopVarName + "." + attributeName);
                 //add variable to list of already used/bound vars
-                usedVars.add(node.getName());
+                boundVars.put(var_name, currAqlVarName);
             }
         }
         else if(node.isURI()){
-            filterConditions.add(forLoopVarName + "." + attributeName + "." + ArangoAttributes.TYPE + AqlOperators.EQUALS + AqlUtils.quoteString(RdfObjectTypes.IRI));
-            filterConditions.add(forLoopVarName + "." + attributeName + "." + ArangoAttributes.VALUE + AqlOperators.EQUALS + AqlUtils.quoteString(node.getURI()));
-        }
-        else if(node.isBlank()){
-            //blank nodes act as variables, not much difference other than that the same blank node label cannot be used
-            //in two different basic graph patterns in the same query. But it's unclear whether blank nodes can still be projecte... maybe consider that they aren't for this impl
-            //indicated by either the label form, such as "_:abc", or the abbreviated form "[]"
-            //TODO if blank node doesn't have label, use node.getBlankNodeId();
-            System.out.println("ID " + node.getBlankNodeId());
-            //TODO also check that blank node label wasn't already used in some other graph pattern
-            System.out.println("LET " + node.getBlankNodeLabel() + " = " + forLoopVarName + "." + attributeName);
+            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));
+            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new Const_String(node.getURI())));
         }
         else if(node.isLiteral()){
-            filterConditions.addAll(ProcessLiteralNode(node));
+            ProcessLiteralNode(node, currAqlVarName, filterConditions);
         }
     }
 
-    /*private String ProcessTripleObject(Node node){
-        if(node.isLiteral()){
-            return ProcessLiteralNode(node);
+    public static void ProcessLiteralNode(Node literal, String currAqlVarName, com.aql.algebra.expressions.ExprList filterConditions){
+        //important to compare to data type in Arango object here
+        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.LITERAL)));
+
+        RDFDatatype datatype = literal.getLiteralDatatype();
+        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_DATA_TYPE)), new Const_String(datatype.getURI())));
+
+        if (datatype instanceof RDFLangString) {
+            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_LANGUAGE)), new Const_String(literal.getLiteralLanguage())));
         }
-        else {
-            //else handle resource
-            return ProcessTripleResource(node);
-        }
+
+        //deiced which of these 2 below methods to call to get the value - refer to https://www.w3.org/TR/sparql11-query/#matchingRDFLiterals
+        //would probably be easier to use the lexical form everywhere.. that way I don't have to parse by type.. although when showing results to user we'll have to customize their displays according to the type..
+        //literal.getLiteralValue();
+        //TODO using the lexical form won't work when we want to apply math or string functions to values in AQL!
+        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new Const_String(literal.getLiteralLexicalForm())));
     }
 
-    private String ProcessTripleResource(Node node){
-        if(node.isVariable()) {
-            System.out.println("LET " + node.getName() + " = " + forLoopVarName +".s");
-        }
-        else if(node.isURI()){
-            String filterCond = forLoopVarName + ".s " + AqlOperators.EQUALS + " '" + node.getURI() + "'";
-            filterConditions.add(filterCond);
-        }
-        else if(node.isBlank()){
-            node.getBlankNodeLabel();
-            node.getBlankNodeId();
-        }
-        else{
-            //TODO throw exception - subject is not expected type.. ORRR it just won't return results lol so let it be.. but a Virtuoso sparql endpoint would error on this...
-        }
-    }*/
-
-    public static void ProcessBindingsTable(Table table){
+    public static com.aql.algebra.expressions.ExprList ProcessBindingsTableJoin(Table table, Map<String, String> boundVars){
         //the FILTER commands should be added if there is a JOIN clause between a Bindings table and some other op..
         //thus the functionality below could be changed to represent the Table in Arango (ex. array of objects with the bound vars..)
-        //String bindingsInAql = "LET bindings = [";
-        String filterConds = "";
+        com.aql.algebra.expressions.Expr jointFilterExpr = null;
         List<Var> vars = table.getVars();
         for (Iterator<Binding> i = table.rows(); i.hasNext();){
-            //bindingsInAql += ProcessBinding(i.next(), vars);
-            filterConds += ProcessBinding(i.next(), vars);
-            if(i.hasNext()){
-                //bindingsInAql += ",";
-                filterConds += " " + AqlOperators.OR + " ";
+            com.aql.algebra.expressions.Expr currExpr = ProcessBinding(i.next(), vars, boundVars);
+
+            if(jointFilterExpr == null){
+                jointFilterExpr = currExpr;
+            }
+            else{
+                jointFilterExpr = new Expr_LogicalOr(jointFilterExpr, currExpr);
             }
         }
-        //bindingsInAql += "]";
-        //System.out.println(bindingsInAql);
-        System.out.println(filterConds);
+        return new com.aql.algebra.expressions.ExprList(jointFilterExpr);
     }
 
-    public static String ProcessBinding(Binding binding, List<Var> vars){
-        //String jsonObject = "{";
+    public static com.aql.algebra.expressions.Expr ProcessBinding(Binding binding, List<Var> vars, Map<String, String> boundVars){
         int undefinedVarsAmount = 0;
-        String filterConds = "(";
+        com.aql.algebra.expressions.Expr wholeExpr = null;
         for(Var var : vars){
-            //jsonObject += "\"" + var.getVarName() + "\" : " + binding.get(var).toString();
             Node value = binding.get(var);
+            com.aql.algebra.expressions.Expr currExpr;
             if(value == null) {
                 //the variable is bound to an undefined value, that is the value of that variable can be anything in this binding case
                 //if all values in one binding (one row of the table) are all null (UNDEF), then result set shouldn't be filtered
                 undefinedVarsAmount++;
-                if(undefinedVarsAmount == vars.size())
-                    filterConds += "true";
-
-                continue;
+                if(undefinedVarsAmount == vars.size()) {
+                    currExpr = new Const_Bool(true);
+                }
+                else{
+                    continue;
+                }
+            }
+            else {
+                //TODO consider whether the binding is to a literal, or uri.. if literal what data type it has, etc...
+                currExpr = new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVars.get(var.getName()))), new Const_String(value.toString()));
             }
 
-            //TODO consider whether the binding is to a literal, or uri.. if literal what data type it has, etc...
-            filterConds += var.getVarName() + " " + AqlOperators.EQUALS + " " + value.toString();
-            if(vars.get(vars.size() -1 ) != var){
-                filterConds += " " + AqlOperators.AND + " ";
-                //jsonObject += ",";
+            if(wholeExpr == null){
+                wholeExpr = currExpr;
+            }
+            else{
+                wholeExpr = new Expr_LogicalAnd(wholeExpr, currExpr);
             }
         }
-        //jsonObject += "}";
-        //return jsonObject;
-        filterConds += ")";
-        return filterConds;
+
+        return wholeExpr;
     }
 
     //TODO consider removing this - instead create a custom ExprVisitor and get the generated AQL equvialent expression from it

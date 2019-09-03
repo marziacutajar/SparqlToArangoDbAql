@@ -60,13 +60,11 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     private VariableGenerator forLoopVarGenerator = new VariableGenerator("forloop", "item");
     private VariableGenerator assignementVarGenerator = new VariableGenerator("assign", "item");
 
-    //Keep track of which variables have already been bound (or not if optional), by mapping ARQ algebra op hashcode to the list of vars
-    private Map<Integer, List<String>> sparqlVariablesByOp = new HashMap<>();
-
     //TODO use below to keep map of bound variables per op, where the second map is used to map the sparql variable name
     // into the corresponding aql variable name to use (due to for loop variable names)
     //TODO possibly use hashCode of ARQ ops instead of that of AQL... so it's easier to get them when processing the next ARQ op
-    //private Map<Integer, Map<String, String>> boundSparqlVariablesByOp = new HashMap<>();
+    //Keep track of which variables have already been bound (or not if optional), by mapping ARQ algebra op hashcode to the list of vars
+    private Map<Integer, Map<String, String>> boundSparqlVariablesByOp = new HashMap<>();
 
     //use linked list - easier to pop out and push items from front or back
     private LinkedList<Op> createdAqlOps = new LinkedList<>();
@@ -76,26 +74,26 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         this.namedGraphNames = namedGraphs;
     }
 
-    private void AddSparqlVariablesByOp(Integer opHashCode, List<String> variables){
-        List<String> currUsedVars = GetSparqlVariablesByOp(opHashCode);
+    private void AddSparqlVariablesByOp(Integer opHashCode, Map<String, String> variables){
+        Map<String, String> currUsedVars = GetSparqlVariablesByOp(opHashCode);
         if(currUsedVars == null) {
-            sparqlVariablesByOp.put(opHashCode, variables);
+            boundSparqlVariablesByOp.put(opHashCode, variables);
         }
         else {
             //do not re-add variables that are already in the list
-            variables.removeAll(currUsedVars);
-            currUsedVars.addAll(variables);
+            variables.keySet().removeAll(currUsedVars.keySet());
+            currUsedVars.putAll(variables);
         }
     }
 
-    private void SetSparqlVariablesByOp(Integer opHashCode, List<String> variables){
-        sparqlVariablesByOp.put(opHashCode, variables);
+    private void SetSparqlVariablesByOp(Integer opHashCode, Map<String, String> variables){
+        boundSparqlVariablesByOp.put(opHashCode, variables);
     }
 
-    private List<String> GetSparqlVariablesByOp(Integer opHashCode){
-        List<String> currUsedVars = sparqlVariablesByOp.get(opHashCode);
+    private Map<String, String> GetSparqlVariablesByOp(Integer opHashCode){
+        Map<String, String> currUsedVars = boundSparqlVariablesByOp.get(opHashCode);
         if(currUsedVars == null)
-            return new ArrayList<>();
+            return new HashMap<>();
 
         return currUsedVars;
     }
@@ -112,13 +110,11 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         }
 
         Op currAqlOp = null;
-        List<String> usedVars = new ArrayList<>();
+        Map<String, String> usedVars = new HashMap<>();
         boolean firstTripleBeingProcessed = true;
         for(Triple triple : opBgp.getPattern().getList()){
             //keep list of FILTER clauses per triple
             ExprList filterConditions = new ExprList();
-            //keep list of LET clauses per triple
-            List<com.aql.algebra.operators.OpAssign> assignments = new ArrayList<>();
 
             String iterationVar = forLoopVarGenerator.getNew();
             Op aqlOp = new OpFor(iterationVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.rdfCollectionName));
@@ -133,9 +129,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
                         AddGraphFilters(namedGraphNames, iterationVar, filterConditions);
 
                         //bind graph var
-                        String boundGraphVarName = graphNode.getName();
-                        assignments.add(new com.aql.algebra.operators.OpAssign(boundGraphVarName, com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME))));
-                        usedVars.add(boundGraphVarName);
+                        usedVars.put(graphNode.getName(), AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME));
                     }
                     else{
                         //add filter with specific named graph
@@ -154,14 +148,11 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
                 filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(outerGraphVarToMatch), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE))));
             }
 
-            ProcessTripleNode(triple.getSubject(), NodeRole.SUBJECT, aqlOp, iterationVar, filterConditions, assignments, usedVars);
-            ProcessTripleNode(triple.getPredicate(), NodeRole.PREDICATE, aqlOp, iterationVar, filterConditions, assignments, usedVars);
-            ProcessTripleNode(triple.getObject(), NodeRole.OBJECT, aqlOp, iterationVar, filterConditions, assignments, usedVars);
+            ProcessTripleNode(triple.getSubject(), NodeRole.SUBJECT, iterationVar, filterConditions, usedVars);
+            ProcessTripleNode(triple.getPredicate(), NodeRole.PREDICATE, iterationVar, filterConditions, usedVars);
+            ProcessTripleNode(triple.getObject(), NodeRole.OBJECT, iterationVar, filterConditions, usedVars);
 
             Op filterOp = new com.aql.algebra.operators.OpFilter(filterConditions, aqlOp);
-            if(assignments.size() > 0){
-                filterOp = new com.aql.algebra.operators.OpExtend(filterOp, assignments);
-            }
 
             if(currAqlOp == null) {
                 currAqlOp = filterOp;
@@ -183,40 +174,38 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         System.out.println("Entering join");
         Op opToJoin1 = createdAqlOps.removeFirst();
         //TODO BETTER TO NOT USE LET STMTS AND JUST NEST BOTH QUERIES FOR PERFORMANCE... question is how to do it in code
-        // as if we do it with nesting we cant use let assignments to bind variables as there will be variable naming conflicts
-        // instead we'd need to keep a map of variable names and which object/attribute they are bound to
-        // this will decrease the query size!!!! we'll have less redundant assignments
 
         //if one side of the join is a table, cater for that
         if(opJoin.getLeft() instanceof OpTable){
             OpTable opTable = (OpTable) opJoin.getLeft();
-
-            opToJoin1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), "forloopVarName_here"), opToJoin1);
-            SetSparqlVariablesByOp(opJoin.hashCode(), GetSparqlVariablesByOp(opJoin.getRight().hashCode()));
+            Map<String, String> boundSparqlVariablesInOpToJoin = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
+            opToJoin1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), boundSparqlVariablesInOpToJoin), opToJoin1);
+            SetSparqlVariablesByOp(opJoin.hashCode(), boundSparqlVariablesInOpToJoin);
             createdAqlOps.add(opToJoin1);
         }
         else if(opJoin.getRight() instanceof OpTable){
             OpTable opTable = (OpTable) opJoin.getRight();
-            opToJoin1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), "forloopVarName_here"), opToJoin1);
-            SetSparqlVariablesByOp(opJoin.hashCode(), GetSparqlVariablesByOp(opJoin.getLeft().hashCode()));
+            Map<String, String> boundSparqlVariablesInOpToJoin = GetSparqlVariablesByOp(opJoin.getLeft().hashCode());
+            opToJoin1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), boundSparqlVariablesInOpToJoin), opToJoin1);
+            SetSparqlVariablesByOp(opJoin.hashCode(), boundSparqlVariablesInOpToJoin);
             createdAqlOps.add(opToJoin1);
         }
         else{
             //use list of common variables between the resulting "bgps" that must be joined
             //also add used vars in join to sparqlVariablesByOp
-            List<String> leftsideVars = GetSparqlVariablesByOp(opJoin.getLeft().hashCode());
+            Map<String, String> leftsideVars = GetSparqlVariablesByOp(opJoin.getLeft().hashCode());
             AddSparqlVariablesByOp(opJoin.hashCode(), leftsideVars);
-            List<String> rightsideVars = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
+            Map<String, String> rightsideVars = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
             AddSparqlVariablesByOp(opJoin.hashCode(), rightsideVars);
 
-            List<String> commonVars = leftsideVars;
-            commonVars.retainAll(rightsideVars);
+            Set<String> commonVars = leftsideVars.keySet();
+            commonVars.retainAll(rightsideVars.keySet());
 
             Op opToJoin2 = createdAqlOps.removeFirst();
 
             ExprList filtersExprs = new ExprList();
             for (String commonVar: commonVars){
-                filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar("forLoopName1_here", commonVar)), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar("forLoopName2_here", commonVar))));
+                filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftsideVars.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftsideVars.get(commonVar)))));
             }
 
             //nest one for loop in the other and add filter statements
@@ -288,9 +277,9 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         createdAqlOps.add(currOp);
 
         //add variables to sparqlVariablesByOp
-        List<String> varList = new ArrayList<>();
-        varExprList.forEachVar(v -> varList.add(v.getName()));
-        AddSparqlVariablesByOp(opExtend.getSubOp().hashCode(), varList);
+        Map<String, String> newBoundVars = new HashMap<>();
+        varExprList.forEachVar(v -> newBoundVars.put(v.getName(), v.getName()));
+        AddSparqlVariablesByOp(opExtend.getSubOp().hashCode(), newBoundVars);
     }
 
     @Override
@@ -316,12 +305,13 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             else{
                 //SELECT DISTINCT WITH >1 VAR = COLLECT in AQL... consider mentioning this in thesis writeup in AQL algebra
                 com.aql.algebra.expressions.VarExprList varExprList = new com.aql.algebra.expressions.VarExprList();
+                Map<String, String> aqlVars = boundSparqlVariablesByOp.get(opProject.getSubOp().hashCode());
+
                 for(Var v: projectableVars){
                     //Add each var to collect clause
-                    //TODO use map of bound vars in current op to get the forloopitem var name + the actual sparql var name
-                    com.aql.algebra.expressions.Var aqlVar = com.aql.algebra.expressions.Var.alloc(v.getVarName());
-                    com.aql.algebra.expressions.Expr varExpr = new Expr_Equals(aqlVar, aqlVar);
-                    varExprList.add(aqlVar, varExpr);
+                    com.aql.algebra.expressions.Var aqlProjectVar = com.aql.algebra.expressions.Var.alloc(v.getVarName());
+                    com.aql.algebra.expressions.Expr varExpr = new Expr_Equals(aqlProjectVar, com.aql.algebra.expressions.Var.alloc(aqlVars.get(v.getVarName())));
+                    varExprList.add(aqlProjectVar, varExpr);
                 }
 
                 //apply collect stmt over current projectionSubOp
@@ -376,8 +366,10 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         createdAqlOps.add(new OpLimit(currOp, opSlice.getStart(), opSlice.getLength()));
     }
 
-    public static void ProcessTripleNode(Node node, NodeRole role, Op currOp, String forLoopVarName, ExprList filterConditions, List<com.aql.algebra.operators.OpAssign> assignments, List<String> usedVars){
+    public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, ExprList filterConditions, Map<String, String> usedVars){
         String attributeName;
+
+        Set<String> usedSparqlVars = usedVars.keySet();
 
         switch(role){
             case SUBJECT:
@@ -395,52 +387,53 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         //We can have a mixture of LET and FILTER statements after each other - refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
         //IMP: in ARQ query expression, blank nodes are represented as variables ??0, ??1 etc.. and an Invalid SPARQL query error is given if same blank node is used in more than one subquery
+        String currAqlVarName = AqlUtils.buildVar(forLoopVarName, attributeName);
+
         if(node.isVariable()) {
             String var_name = node.getName();
-            if(usedVars.contains(var_name)){
+            if(usedSparqlVars.contains(var_name)){
                 //node was already bound in another triple, add a filter condition instead
-                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName)), com.aql.algebra.expressions.Var.alloc(var_name)));
+                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(currAqlVarName), com.aql.algebra.expressions.Var.alloc(usedVars.get(var_name))));
             }
             else {
-                assignments.add(new com.aql.algebra.operators.OpAssign(node.getName(), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName))));
                 //add variable to list of already used/bound vars
-                usedVars.add(node.getName());
+                usedVars.put(var_name, currAqlVarName);
             }
         }
         else if(node.isURI()){
-            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));
-            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, attributeName, ArangoAttributes.VALUE)), new Const_String(node.getURI())));
+            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));
+            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new Const_String(node.getURI())));
         }
         else if(node.isLiteral()){
-            ProcessLiteralNode(node, forLoopVarName, filterConditions);
+            ProcessLiteralNode(node, currAqlVarName, filterConditions);
         }
     }
 
-    public static void ProcessLiteralNode(Node literal, String forLoopVarName, ExprList filterConditions){
+    public static void ProcessLiteralNode(Node literal, String currAqlVarName, ExprList filterConditions){
         //important to compare to data type in Arango object here
-        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, ArangoAttributes.OBJECT, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.LITERAL)));
+        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.LITERAL)));
 
         RDFDatatype datatype = literal.getLiteralDatatype();
-        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, ArangoAttributes.OBJECT, ArangoAttributes.LITERAL_DATA_TYPE)), new Const_String(datatype.getURI())));
+        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_DATA_TYPE)), new Const_String(datatype.getURI())));
 
         if (datatype instanceof RDFLangString) {
-            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, ArangoAttributes.OBJECT, ArangoAttributes.LITERAL_LANGUAGE)), new Const_String(literal.getLiteralLanguage())));
+            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_LANGUAGE)), new Const_String(literal.getLiteralLanguage())));
         }
 
         //deiced which of these 2 below methods to call to get the value - refer to https://www.w3.org/TR/sparql11-query/#matchingRDFLiterals
         //would probably be easier to use the lexical form everywhere.. that way I don't have to parse by type.. although when showing results to user we'll have to customize their displays according to the type..
         //literal.getLiteralValue();
         //TODO using the lexical form won't work when we want to apply math or string functions to values in AQL!
-        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName, ArangoAttributes.OBJECT, ArangoAttributes.VALUE)), new Const_String(literal.getLiteralLexicalForm())));
+        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new Const_String(literal.getLiteralLexicalForm())));
     }
 
-    public static ExprList ProcessBindingsTableJoin(Table table, String forLoopVarName){
+    public static ExprList ProcessBindingsTableJoin(Table table, Map<String, String> boundVars){
         //the FILTER commands should be added if there is a JOIN clause between a Bindings table and some other op..
         //thus the functionality below could be changed to represent the Table in Arango (ex. array of objects with the bound vars..)
         com.aql.algebra.expressions.Expr jointFilterExpr = null;
         List<Var> vars = table.getVars();
         for (Iterator<Binding> i = table.rows(); i.hasNext();){
-            com.aql.algebra.expressions.Expr currExpr = ProcessBinding(i.next(), vars, forLoopVarName);
+            com.aql.algebra.expressions.Expr currExpr = ProcessBinding(i.next(), vars, boundVars);
 
             if(jointFilterExpr == null){
                 jointFilterExpr = currExpr;
@@ -452,7 +445,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         return new ExprList(jointFilterExpr);
     }
 
-    public static com.aql.algebra.expressions.Expr ProcessBinding(Binding binding, List<Var> vars, String forLoopVarName){
+    public static com.aql.algebra.expressions.Expr ProcessBinding(Binding binding, List<Var> vars, Map<String, String> boundVars){
         int undefinedVarsAmount = 0;
         com.aql.algebra.expressions.Expr wholeExpr = null;
         for(Var var : vars){
@@ -471,7 +464,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             }
             else {
                 //TODO consider whether the binding is to a literal, or uri.. if literal what data type it has, etc...
-                currExpr = new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(forLoopVarName,var.getName())), new Const_String(value.toString()));
+                currExpr = new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVars.get(var.getName()))), new Const_String(value.toString()));
             }
 
             if(wholeExpr == null){

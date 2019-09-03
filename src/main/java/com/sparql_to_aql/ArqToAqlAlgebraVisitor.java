@@ -68,8 +68,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     //TODO possibly use hashCode of ARQ ops instead of that of AQL... so it's easier to get them when processing the next ARQ op
     //private Map<Integer, Map<String, String>> boundSparqlVariablesByOp = new HashMap<>();
 
-    //TODO could use Stack or LinkedList instead if necessary
-    private List<Op> createdAqlOps = new ArrayList<>();
+    //use linked list - easier to pop out and push items from front or back
+    private LinkedList<Op> createdAqlOps = new LinkedList<>();
 
     public ArqToAqlAlgebraVisitor(List<String> defaultGraphNames, List<String> namedGraphs){
         this.defaultGraphNames = defaultGraphNames;
@@ -181,7 +181,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpJoin opJoin){
         System.out.println("Entering join");
-        Op opToJoin1 = createdAqlOps.get(0);
+        Op opToJoin1 = createdAqlOps.removeFirst();
         //TODO BETTER TO NOT USE LET STMTS AND JUST NEST BOTH QUERIES FOR PERFORMANCE... question is how to do it in code
         // as if we do it with nesting we cant use let assignments to bind variables as there will be variable naming conflicts
         // instead we'd need to keep a map of variable names and which object/attribute they are bound to
@@ -193,13 +193,13 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
             opToJoin1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), "forloopVarName_here"), opToJoin1);
             SetSparqlVariablesByOp(opJoin.hashCode(), GetSparqlVariablesByOp(opJoin.getRight().hashCode()));
-            createdAqlOps.set(0, opToJoin1);
+            createdAqlOps.add(opToJoin1);
         }
         else if(opJoin.getRight() instanceof OpTable){
             OpTable opTable = (OpTable) opJoin.getRight();
             opToJoin1 = new com.aql.algebra.operators.OpFilter(ProcessBindingsTableJoin(opTable.getTable(), "forloopVarName_here"), opToJoin1);
             SetSparqlVariablesByOp(opJoin.hashCode(), GetSparqlVariablesByOp(opJoin.getLeft().hashCode()));
-            createdAqlOps.set(0, opToJoin1);
+            createdAqlOps.add(opToJoin1);
         }
         else{
             //use list of common variables between the resulting "bgps" that must be joined
@@ -212,7 +212,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             List<String> commonVars = leftsideVars;
             commonVars.retainAll(rightsideVars);
 
-            Op opToJoin2 = createdAqlOps.get(1);
+            Op opToJoin2 = createdAqlOps.removeFirst();
 
             ExprList filtersExprs = new ExprList();
             for (String commonVar: commonVars){
@@ -221,8 +221,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
             //nest one for loop in the other and add filter statements
             opToJoin1 = new OpNest(opToJoin1, new com.aql.algebra.operators.OpFilter(filtersExprs, opToJoin2));
-            createdAqlOps.set(0, opToJoin1);
-            createdAqlOps.remove(1);
+            createdAqlOps.add(opToJoin1);
         }
     }
 
@@ -265,28 +264,28 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpFilter opFilter){
         //add filter operator over current op
-        int currOpIndex = createdAqlOps.size()-1;
-        Op currOp = createdAqlOps.get(currOpIndex);
+        Op currOp = createdAqlOps.removeLast();
         //iterate over expressions, add filter conditions in AQL format to list for concatenating later
         ExprList filterConds = new ExprList();
         for(Iterator<Expr> i = opFilter.getExprs().iterator(); i.hasNext();){
             filterConds.add(ProcessExpr(i.next()));
         }
 
-        createdAqlOps.set(currOpIndex, new com.aql.algebra.operators.OpFilter(filterConds, currOp));
+        createdAqlOps.add(new com.aql.algebra.operators.OpFilter(filterConds, currOp));
     }
 
     @Override
     public void visit(OpExtend opExtend){
-        int currOpIndex = createdAqlOps.size()-1;
-        Op currOp = createdAqlOps.get(currOpIndex);
+        Op currOp = createdAqlOps.removeLast();
 
         VarExprList varExprList = opExtend.getVarExprList();
 
         List<com.aql.algebra.operators.OpAssign> assignmentExprs = new ArrayList<>();
         varExprList.forEachVarExpr((v,e) -> assignmentExprs.add(new com.aql.algebra.operators.OpAssign(v.getVarName(), ProcessExpr(e))));
         //nest assignments into current op or extend current op
-        new com.aql.algebra.operators.OpExtend(currOp, assignmentExprs);
+
+        currOp = new com.aql.algebra.operators.OpExtend(currOp, assignmentExprs);
+        createdAqlOps.add(currOp);
 
         //add variables to sparqlVariablesByOp
         List<String> varList = new ArrayList<>();
@@ -307,8 +306,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     public void visit(OpProject opProject){
         boolean useDistinct = false;
 
-        int currOpIndex = createdAqlOps.size()-1;
-        Op projectionSubOp = createdAqlOps.get(currOpIndex);
+        Op currOp = createdAqlOps.removeLast();
         List<Var> projectableVars = opProject.getVars();
 
         if(opProject instanceof OpDistinctProject){
@@ -327,21 +325,20 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
                 }
 
                 //apply collect stmt over current projectionSubOp
-                projectionSubOp = new OpCollect(projectionSubOp, varExprList, null);
+                currOp = new OpCollect(currOp, varExprList, null);
             }
         }
 
         List<com.aql.algebra.expressions.Expr> returnVariables = projectableVars.stream().map(v -> com.aql.algebra.expressions.Var.alloc(v.getVarName()))
                 .collect(Collectors.toList());
 
-        Op returnStmt = new com.aql.algebra.operators.OpProject(projectionSubOp, returnVariables, useDistinct);
-        createdAqlOps.set(currOpIndex, returnStmt);
+        Op returnStmt = new com.aql.algebra.operators.OpProject(currOp, returnVariables, useDistinct);
+        createdAqlOps.add(returnStmt);
     }
 
     @Override
     public void visit(OpOrder opOrder) {
-        int currOpIndex = createdAqlOps.size()-1;
-        Op orderSubOp = createdAqlOps.get(currOpIndex);
+        Op orderSubOp = createdAqlOps.removeLast();
 
         List<SortCondition> sortConditionList = opOrder.getConditions();
         List<com.aql.algebra.SortCondition> aqlSortConds = new ArrayList<>();
@@ -356,13 +353,12 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         OpSort aqlSort = new OpSort(orderSubOp, aqlSortConds);
         //TODO add variables by op
-        createdAqlOps.set(currOpIndex, aqlSort);
+        createdAqlOps.add(aqlSort);
     }
 
     @Override
     public void visit(OpGroup opGroup){
-        int currOpIndex = createdAqlOps.size()-1;
-        Op subOp = createdAqlOps.get(currOpIndex);
+        Op subOp = createdAqlOps.removeLast();
 
         VarExprList varExprList = opGroup.getGroupVars();
         //TODO consider just not supporting aggregations for this implementation
@@ -370,15 +366,14 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         com.aql.algebra.expressions.VarExprList aqlVarExpr = new com.aql.algebra.expressions.VarExprList();
         //varExprList.forEachVarExpr((v,e) -> aqlVarExpr.add(v.getVarName(), RewritingUtils.ProcessExpr(e)));
         OpCollect collectOp = new OpCollect(subOp, aqlVarExpr, null);
-        createdAqlOps.set(currOpIndex, collectOp);
+        createdAqlOps.add(collectOp);
     }
 
     @Override
     public void visit(OpSlice opSlice){
-        int currOpIndex = createdAqlOps.size()-1;
-        Op currOp = createdAqlOps.get(currOpIndex);
+        Op currOp = createdAqlOps.removeLast();
 
-        createdAqlOps.set(currOpIndex, new OpLimit(currOp, opSlice.getStart(), opSlice.getLength()));
+        createdAqlOps.add(new OpLimit(currOp, opSlice.getStart(), opSlice.getLength()));
     }
 
     public static void ProcessTripleNode(Node node, NodeRole role, Op currOp, String forLoopVarName, ExprList filterConditions, List<com.aql.algebra.operators.OpAssign> assignments, List<String> usedVars){

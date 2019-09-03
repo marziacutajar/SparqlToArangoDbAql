@@ -60,10 +60,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     private VariableGenerator forLoopVarGenerator = new VariableGenerator("forloop", "item");
     private VariableGenerator assignementVarGenerator = new VariableGenerator("assign", "item");
 
-    //TODO use below to keep map of bound variables per op, where the second map is used to map the sparql variable name
-    // into the corresponding aql variable name to use (due to for loop variable names)
-    //TODO possibly use hashCode of ARQ ops instead of that of AQL... so it's easier to get them when processing the next ARQ op
     //Keep track of which variables have already been bound (or not if optional), by mapping ARQ algebra op hashcode to the list of vars
+    //the second map is used to map the sparql variable name  into the corresponding aql variable name to use (due to for loop variable names)
     private Map<Integer, Map<String, String>> boundSparqlVariablesByOp = new HashMap<>();
 
     //use linked list - easier to pop out and push items from front or back
@@ -173,7 +171,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     public void visit(OpJoin opJoin){
         System.out.println("Entering join");
         Op opToJoin1 = createdAqlOps.removeFirst();
-        //TODO BETTER TO NOT USE LET STMTS AND JUST NEST BOTH QUERIES FOR PERFORMANCE... question is how to do it in code
+        //TODO whether we use LET stsms or not here depends if the ops being joined include a projection or not
 
         //if one side of the join is a table, cater for that
         if(opJoin.getLeft() instanceof OpTable){
@@ -205,7 +203,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
             ExprList filtersExprs = new ExprList();
             for (String commonVar: commonVars){
-                filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftsideVars.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftsideVars.get(commonVar)))));
+                filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftsideVars.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(rightsideVars.get(commonVar)))));
             }
 
             //nest one for loop in the other and add filter statements
@@ -256,6 +254,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         Op currOp = createdAqlOps.removeLast();
         //iterate over expressions, add filter conditions in AQL format to list for concatenating later
         ExprList filterConds = new ExprList();
+        //TODO might need to use var map here
         for(Iterator<Expr> i = opFilter.getExprs().iterator(); i.hasNext();){
             filterConds.add(ProcessExpr(i.next()));
         }
@@ -333,17 +332,19 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         List<SortCondition> sortConditionList = opOrder.getConditions();
         List<com.aql.algebra.SortCondition> aqlSortConds = new ArrayList<>();
 
+        Map<String, String> boundVars = boundSparqlVariablesByOp.get(opOrder.getSubOp().hashCode());
+
         for (int i= 0; i < sortConditionList.size(); i++) {
             SortCondition currCond = sortConditionList.get(i);
             //direction = 1 if ASC, -1 if DESC, -2 if unspecified (default asc)
             com.aql.algebra.SortCondition.Direction direction = currCond.getDirection() == -1 ? com.aql.algebra.SortCondition.Direction.DESC : com.aql.algebra.SortCondition.Direction.ASC;
-            //TODO here we're assuming expr is definitely a variable.. would be better to use expression visitor and get resulting AQL expression from it
-            aqlSortConds.add(new com.aql.algebra.SortCondition(com.aql.algebra.expressions.Var.alloc(currCond.getExpression().getVarName()), direction));
+            //TODO here we're assuming expr is definitely a variable.. would be better to use expression visitor and get resulting AQL expression from it.. imp to also use boundVars map here
+            aqlSortConds.add(new com.aql.algebra.SortCondition(com.aql.algebra.expressions.Var.alloc(boundVars.get(currCond.getExpression().getVarName())), direction));
         }
 
         OpSort aqlSort = new OpSort(orderSubOp, aqlSortConds);
-        //TODO add variables by op
         createdAqlOps.add(aqlSort);
+        SetSparqlVariablesByOp(opOrder.hashCode(), boundVars);
     }
 
     @Override
@@ -354,6 +355,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //TODO consider just not supporting aggregations for this implementation
 
         com.aql.algebra.expressions.VarExprList aqlVarExpr = new com.aql.algebra.expressions.VarExprList();
+        //TODO get below working
         //varExprList.forEachVarExpr((v,e) -> aqlVarExpr.add(v.getVarName(), RewritingUtils.ProcessExpr(e)));
         OpCollect collectOp = new OpCollect(subOp, aqlVarExpr, null);
         createdAqlOps.add(collectOp);
@@ -366,10 +368,10 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         createdAqlOps.add(new OpLimit(currOp, opSlice.getStart(), opSlice.getLength()));
     }
 
-    public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, ExprList filterConditions, Map<String, String> usedVars){
+    public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, ExprList filterConditions, Map<String, String> boundVars){
         String attributeName;
 
-        Set<String> usedSparqlVars = usedVars.keySet();
+        Set<String> usedSparqlVars = boundVars.keySet();
 
         switch(role){
             case SUBJECT:
@@ -393,11 +395,11 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             String var_name = node.getName();
             if(usedSparqlVars.contains(var_name)){
                 //node was already bound in another triple, add a filter condition instead
-                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(currAqlVarName), com.aql.algebra.expressions.Var.alloc(usedVars.get(var_name))));
+                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(currAqlVarName), com.aql.algebra.expressions.Var.alloc(boundVars.get(var_name))));
             }
             else {
                 //add variable to list of already used/bound vars
-                usedVars.put(var_name, currAqlVarName);
+                boundVars.put(var_name, currAqlVarName);
             }
         }
         else if(node.isURI()){

@@ -1,6 +1,5 @@
 package com.sparql_to_aql;
 
-import com.aql.algebra.expressions.ExprAggregator;
 import com.aql.algebra.operators.*;
 import com.aql.algebra.operators.OpAssign;
 import com.sparql_to_aql.constants.ArangoAttributes;
@@ -18,12 +17,9 @@ import com.sparql_to_aql.entities.algebra.OpGraphBGP;
 import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
 import com.sparql_to_aql.utils.VariableGenerator;
-import org.apache.jena.datatypes.RDFDatatype;
-import org.apache.jena.datatypes.xsd.impl.RDFLangString;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.SortCondition;
-import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.algebra.op.*;
 import org.apache.jena.sparql.algebra.op.OpExtend;
 import org.apache.jena.sparql.algebra.op.OpFilter;
@@ -32,14 +28,12 @@ import org.apache.jena.sparql.algebra.op.OpMinus;
 import org.apache.jena.sparql.algebra.op.OpProject;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.core.VarExprList;
-import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.expr.Expr;
 import java.util.*;
 import java.util.stream.Collectors;
 
 //class used for rewriting of SPARQL algebra query expression to AQL algebra query expression
 //translating the SPARQL algebra expressions directly to an AQL query would be hard to re-optimise
-//TODO could possibly use WalkerVisitor (to visit both Ops and Exprs in the same class)
 //TODO decide whether to add visit methods for OpList, OpPath and others.. or whether they'll be unsupported
 public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
@@ -254,12 +248,14 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         Op currOp = createdAqlOps.removeLast();
         //iterate over expressions, add filter conditions in AQL format to list for concatenating later
         ExprList filterConds = new ExprList();
+        org.apache.jena.sparql.expr.ExprList exprList = opFilter.getExprs();
         //TODO might need to use var map here
         for(Iterator<Expr> i = opFilter.getExprs().iterator(); i.hasNext();){
-            filterConds.add(ProcessExpr(i.next()));
+            filterConds.add(RewritingUtils.ProcessExpr(i.next()));
         }
 
         createdAqlOps.add(new com.aql.algebra.operators.OpFilter(filterConds, currOp));
+        SetSparqlVariablesByOp(opFilter.hashCode(), GetSparqlVariablesByOp(opFilter.getSubOp().hashCode()));
     }
 
     @Override
@@ -269,7 +265,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         VarExprList varExprList = opExtend.getVarExprList();
 
         List<com.aql.algebra.operators.OpAssign> assignmentExprs = new ArrayList<>();
-        varExprList.forEachVarExpr((v,e) -> assignmentExprs.add(new com.aql.algebra.operators.OpAssign(v.getVarName(), ProcessExpr(e))));
+        varExprList.forEachVarExpr((v,e) -> assignmentExprs.add(new com.aql.algebra.operators.OpAssign(v.getVarName(), RewritingUtils.ProcessExpr(e))));
         //nest assignments into current op or extend current op
 
         currOp = new com.aql.algebra.operators.OpExtend(currOp, assignmentExprs);
@@ -322,6 +318,11 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
                 .collect(Collectors.toList());
 
         Op returnStmt = new com.aql.algebra.operators.OpProject(currOp, returnVariables, useDistinct);
+
+        Map<String, String> projectedAqlVars = new HashMap<>();
+        projectableVars.stream().map(v -> projectedAqlVars.put(v.getVarName(), v.getVarName()));
+        boundSparqlVariablesByOp.put(opProject.hashCode(), projectedAqlVars);
+
         createdAqlOps.add(returnStmt);
     }
 
@@ -348,34 +349,10 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     }
 
     @Override
-    public void visit(OpGroup opGroup){
-        Op subOp = createdAqlOps.removeLast();
-
-        VarExprList varExprList = opGroup.getGroupVars();
-        //TODO consider just not supporting aggregations for this implementation
-
-        com.aql.algebra.expressions.VarExprList aqlVarExpr = new com.aql.algebra.expressions.VarExprList();
-        //TODO get below working
-        //varExprList.forEachVarExpr((v,e) -> aqlVarExpr.add(v.getVarName(), RewritingUtils.ProcessExpr(e)));
-        OpCollect collectOp = new OpCollect(subOp, aqlVarExpr, null);
-        createdAqlOps.add(collectOp);
-    }
-
-    @Override
     public void visit(OpSlice opSlice){
         Op currOp = createdAqlOps.removeLast();
 
         createdAqlOps.add(new OpLimit(currOp, opSlice.getStart(), opSlice.getLength()));
-    }
-
-    public static com.aql.algebra.expressions.Expr ProcessExpr(Expr expr){
-        Expr aqlExpr;
-
-        //TODO remove below when we're constructing actual expr
-        Const_Bool test = new Const_Bool(false);
-
-        //TODO use an ExprVisitor here
-        return test;
     }
 
     public void AddGraphFilters(List<String> graphNames, String forLoopVarName, ExprList filterConditions){

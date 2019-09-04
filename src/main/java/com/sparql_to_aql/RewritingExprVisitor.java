@@ -1,95 +1,132 @@
 package com.sparql_to_aql;
 
+import com.aql.algebra.expressions.constants.Const_Bool;
+import com.aql.algebra.expressions.constants.Const_Number;
+import com.aql.algebra.expressions.constants.Const_String;
+import com.aql.algebra.expressions.functions.Expr_LogicalNot;
+import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.expr.*;
 
+import java.util.LinkedList;
+import java.util.Map;
+
+//TODO IMP consider removing data type for literals from our arangodb documents - you'll know the type if the value is a number, a string, or a boolean, and if it's a language sting it will have lang attribute
+
+//TODO it's gonna be hard to support expressions outside of filters ie. where we need the result of an expression.. possibly mention this in limitations..
+// because we'll need to apply calculations on the VALUE of the arango doc but then we need the TYPE, DATATYPE, LANG, as well..
+// ideally we know the op in which the expr is being used.. so we can add some other conditions
 public class RewritingExprVisitor extends ExprVisitorBase {
     private String aqlExpressionString;
+
+    Map<String, String> boundVariables;
+
+    private LinkedList<com.aql.algebra.expressions.Expr> createdAqlExprs = new LinkedList<>();
+
+    public RewritingExprVisitor(Map<String, String> boundVariables){
+        this.boundVariables = boundVariables;
+    }
 
     //handle function with no arguments
     @Override
     public void visit(ExprFunction0 func){
-
+        //only expr we might support is E_Now here - this needs to be transformed to DATE_ISO8601(DATE_NOW()) in AQL
+        throw new UnsupportedOperationException("SPARQL expression not supported!");
     }
 
     //handle function with one argument
     @Override
     public void visit(ExprFunction1 func){
-        //TODO check which function it is
-        func.getArg();
+        //not a priority but possibly support ABS, CEILING, FLOOR, ROUND, STR_LOWER, STR_UPPER, STR_LENGTH
+        // remember that for this we'd have to check the VALUE of the arangodb document
+        if(func instanceof E_LogicalNot){
+
+        }
+        else{
+            throw new UnsupportedOperationException("SPARQL expression not supported!");
+        }
         //TODO also visit the arguments ?? or if this is done bottom-up by the visitor then no need..
     }
 
+    //TODO consider improving below using enum + switch
     @Override
     public void visit(ExprFunction2 func){
-        func.getArg1();
-        func.getArg2();
+        if(func instanceof E_Add){
+
+        }else if(func instanceof E_Divide){
+
+        }else if(func instanceof E_Equals){
+
+        }else if(func instanceof E_GreaterThan){
+
+        }else if(func instanceof E_GreaterThanOrEqual){
+
+        }else if(func instanceof E_LessThan){
+
+        }else if(func instanceof E_LessThanOrEqual){
+
+        }else if(func instanceof E_LogicalAnd){
+
+        }else if(func instanceof E_LogicalOr){
+
+        }else if(func instanceof E_Multiply){
+
+        }else if(func instanceof E_NotEquals){
+
+        }else if(func instanceof E_Subtract){
+
+        }
+        else{
+            throw new UnsupportedOperationException("SPARQL expression not supported!");
+        }
     }
 
-    //TODO not sure if I need this... I think it's encountered in case like (x) ? opt1 : opt2
+    //encountered in case like (x == y) ? opt1 : opt2
     @Override
     public void visit(ExprFunction3 func){
-
+        throw new UnsupportedOperationException("SPARQL expression not supported!");
     }
 
-    //TODO not sure if I'll support this
     @Override
     public void visit(ExprFunctionN func){
-
+        throw new UnsupportedOperationException("SPARQL expression not supported!");
     }
 
     //handle function that executes over a graph pattern (E_Exists, E_NotExists)
     @Override
     public void visit(ExprFunctionOp op){
-        //TODO not sure how to handle this in AQL..
+        throw new UnsupportedOperationException("SPARQL expression not supported!");
     }
 
     @Override
     public void visit(NodeValue nv){
-        //TODO handle different types of values
-
-        if(nv.isIRI()){
-            nv.getString();
+        //handle different types of values - we're only gonna allow "constants"
+        if(nv.isBoolean()){
+            new Const_Bool(nv.getBoolean());
         }
-        //TODO how do we handle a literal here if for literals we need multiple conditions....!
-        else if(nv.isLiteral()){
-            if(nv.isBoolean()){
-                nv.getBoolean();
-            }
-            else if(nv.isDate()){
-                //TODO decide between getDate, asString and asQuotedString
-                nv.asString();
-            }
-            else if(nv.isDateTime()){
-
-            }
-            else if(nv.isLangString()){
-
-            }
-            else if(nv.isString()) {
-
-            }
-            else if(nv.isNumber()){
-                //TODO check what type of number...
-            }
+        else if(nv.isString()) {
+            new Const_String(nv.getString());
         }
-        else if(nv.isBlank()){
-
+        else if(nv.isNumber()){
+            new Const_Number(nv.getDouble());
+        }
+        else{
+            throw new UnsupportedOperationException("Node value in SPARQL expression not supported!");
         }
     }
 
     @Override
     public void visit(ExprVar nv){
+        //TODO
         nv.getVarName();
     }
 
     @Override
     public void visit(ExprAggregator eAgg){
-        //TODO not sure how to handle
+        throw new UnsupportedOperationException("SPARQL expression not supported!");
     }
 
     @Override
     public void visit(ExprNone exprNone){
-        //represents null
-        System.out.println("null");
+        throw new UnsupportedOperationException("SPARQL expression not supported!");
     }
 }

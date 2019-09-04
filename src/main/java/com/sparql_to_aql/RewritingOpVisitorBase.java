@@ -1,6 +1,7 @@
 package com.sparql_to_aql;
 
 import org.apache.jena.sparql.algebra.OpVisitorBase;
+import org.apache.jena.sparql.algebra.op.OpGroup;
 import org.apache.jena.sparql.algebra.op.OpProcedure;
 import org.apache.jena.sparql.algebra.op.OpReduced;
 import org.apache.jena.sparql.algebra.op.OpService;
@@ -19,5 +20,10 @@ public class RewritingOpVisitorBase extends OpVisitorBase {
     @Override
     public void visit(OpProcedure opProcedure){
         throw new UnsupportedOperationException("Encountered unsupported operation!");
+    }
+
+    @Override
+    public void visit(OpGroup opGroup){
+        throw new UnsupportedOperationException("The SPARQL GROUPBY operation is not supported!");
     }
 }

@@ -134,36 +134,14 @@ public class RewritingUtils {
 
     //TODO consider removing this - instead create a custom ExprVisitor and get the generated AQL equvialent expression from it
     //Expr is just an interface and there are other classes that implement it and represent operators - refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/expr/Expr.html
-    public static String ProcessExpr(Expr expr){
-        String aqlExpr = "";
+    public static com.aql.algebra.expressions.Expr ProcessExpr(Expr expr){
+        Expr aqlExpr;
 
-        if(expr instanceof ExprFunction2){
-            ExprFunction2 exprFunction2 = (ExprFunction2)expr;
-            //TODO need a Map mapping ARQ expr/function symbol or class name to AQL ops/functions
-            System.out.println(exprFunction2.getFunctionSymbol().getSymbol());
-        }
+        //TODO remove below when we're constructing actual expr
+        Const_Bool test = new Const_Bool(false);
 
-        return expr.toString();
-    }
-
-    public static List<String> ProcessLiteralNode(Node literal){
-        //important to compare to data type in Arango object here
-        List<String> filterConds = new ArrayList<>();
-        filterConds.add("var_name_here" + "." + ArangoAttributes.OBJECT + "." + ArangoAttributes.TYPE + AqlOperators.EQUALS + AqlUtils.quoteString(RdfObjectTypes.LITERAL));
-        RDFDatatype datatype = literal.getLiteralDatatype();
-        filterConds.add("var_name_here" + "." + ArangoAttributes.OBJECT + "." + ArangoAttributes.LITERAL_DATA_TYPE + AqlOperators.EQUALS + AqlUtils.quoteString(datatype.getURI()));
-
-        if (datatype instanceof RDFLangString) {
-            filterConds.add("var_name_here" + "." + ArangoAttributes.OBJECT + "." + ArangoAttributes.LITERAL_LANGUAGE + AqlOperators.EQUALS + AqlUtils.quoteString(literal.getLiteralLanguage()));
-        }
-
-        //deiced which of these 2 below methods to call to get the value - refer to https://www.w3.org/TR/sparql11-query/#matchingRDFLiterals
-        //would probably be easier to use the lexical form everywhere.. that way I don't have to parse by type.. although when showing results to user we'll have to customize their displays according to the type..
-        //literal.getLiteralValue();
-        //TODO using the lexical form won't work when we want to apply math or string functions to values in AQL!
-        filterConds.add("var_name_here" + "." + ArangoAttributes.OBJECT + "." + ArangoAttributes.VALUE + AqlOperators.EQUALS + AqlUtils.quoteString(literal.getLiteralLexicalForm()));
-
-        return filterConds;
+        //TODO use an ExprVisitor here
+        return test;
     }
 
 }

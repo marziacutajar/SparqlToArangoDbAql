@@ -4,6 +4,7 @@ import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpGraphTransformer;
+import com.sparql_to_aql.entities.algebra.transformers.OpProjectOverSliceTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
 import org.apache.commons.cli.*;
 import org.apache.jena.query.*;
@@ -57,10 +58,7 @@ public class Main {
 
             System.out.println("initial validation and optimization of algebra");
             //call any optimization transformers on the algebra tree
-            //op = Algebra.optimize(op);
-            //op = Transformer.transform(new TransformTopN(), op);
-            //TODO consider using below quad form.. might be easier to parse than having a GRAPH operator..
-            //op = Algebra.toQuadForm(op);
+
             //TODO TransformPattern2Join is useful if we want to process all triples seperately instead of as BGPs
             // however not having triples in the same bgp nested in the same subquery will make it slower..I think..
             //op = Transformer.transform(new TransformPattern2Join(), op);
@@ -72,8 +70,12 @@ public class Main {
             //transformer to use to combine graph and its nested bgp into one operator
             op = Transformer.transform(new OpGraphTransformer(), op);
 
-            //TODO consider also these existing transformers:
+            //transformer to use to nest slice op in project op instead of vice versa
+            op = Transformer.transform(new OpProjectOverSliceTransformer(), op);
+
+            //consider also these existing transformers:
             //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment
+
             SSE.write(op);
             OpWalker.walk(op, new ArqToAqlAlgebraVisitor(query.getGraphURIs(), query.getNamedGraphURIs()));
 

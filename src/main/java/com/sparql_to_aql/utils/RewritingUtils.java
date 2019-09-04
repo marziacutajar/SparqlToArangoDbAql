@@ -5,6 +5,7 @@ import com.aql.algebra.expressions.constants.Const_String;
 import com.aql.algebra.expressions.functions.Expr_Equals;
 import com.aql.algebra.expressions.functions.Expr_LogicalAnd;
 import com.aql.algebra.expressions.functions.Expr_LogicalOr;
+import com.sparql_to_aql.RewritingExprVisitor;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.constants.RdfObjectTypes;
@@ -13,6 +14,7 @@ import org.apache.jena.datatypes.RDFDatatype;
 import org.apache.jena.datatypes.xsd.impl.RDFLangString;
 import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.algebra.Table;
+import org.apache.jena.sparql.algebra.walker.Walker;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.expr.*;
@@ -132,16 +134,12 @@ public class RewritingUtils {
         return wholeExpr;
     }
 
-    //TODO consider removing this - instead create a custom ExprVisitor and get the generated AQL equvialent expression from it
-    //Expr is just an interface and there are other classes that implement it and represent operators - refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/expr/Expr.html
-    public static com.aql.algebra.expressions.Expr ProcessExpr(Expr expr){
-        Expr aqlExpr;
+    //use custom ExprVisitor and get the generated AQL equvialent expression from it
+    public static com.aql.algebra.expressions.Expr ProcessExpr(Expr expr, Map<String, String> boundVariables){
+        RewritingExprVisitor exprVisitor = new RewritingExprVisitor(boundVariables);
+        Walker.walk(expr, exprVisitor);
 
-        //TODO remove below when we're constructing actual expr
-        Const_Bool test = new Const_Bool(false);
-
-        //TODO use an ExprVisitor here
-        return test;
+        return exprVisitor.getFinalAqlExpr();
     }
 
 }

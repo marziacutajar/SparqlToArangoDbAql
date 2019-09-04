@@ -246,16 +246,16 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     public void visit(OpFilter opFilter){
         //add filter operator over current op
         Op currOp = createdAqlOps.removeLast();
+        Map<String, String> boundVars = GetSparqlVariablesByOp(opFilter.getSubOp().hashCode());
         //iterate over expressions, add filter conditions in AQL format to list for concatenating later
         ExprList filterConds = new ExprList();
-        org.apache.jena.sparql.expr.ExprList exprList = opFilter.getExprs();
-        //TODO might need to use var map here
+
         for(Iterator<Expr> i = opFilter.getExprs().iterator(); i.hasNext();){
-            filterConds.add(RewritingUtils.ProcessExpr(i.next()));
+            filterConds.add(RewritingUtils.ProcessExpr(i.next(), boundVars));
         }
 
         createdAqlOps.add(new com.aql.algebra.operators.OpFilter(filterConds, currOp));
-        SetSparqlVariablesByOp(opFilter.hashCode(), GetSparqlVariablesByOp(opFilter.getSubOp().hashCode()));
+        SetSparqlVariablesByOp(opFilter.hashCode(), boundVars);
     }
 
     @Override
@@ -264,8 +264,10 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         VarExprList varExprList = opExtend.getVarExprList();
 
+        Map<String, String> prevBoundVars = GetSparqlVariablesByOp(opExtend.getSubOp().hashCode());
+
         List<com.aql.algebra.operators.OpAssign> assignmentExprs = new ArrayList<>();
-        varExprList.forEachVarExpr((v,e) -> assignmentExprs.add(new com.aql.algebra.operators.OpAssign(v.getVarName(), RewritingUtils.ProcessExpr(e))));
+        varExprList.forEachVarExpr((v,e) -> assignmentExprs.add(new com.aql.algebra.operators.OpAssign(v.getVarName(), RewritingUtils.ProcessExpr(e, prevBoundVars))));
         //nest assignments into current op or extend current op
 
         currOp = new com.aql.algebra.operators.OpExtend(currOp, assignmentExprs);
@@ -274,7 +276,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //add variables to sparqlVariablesByOp
         Map<String, String> newBoundVars = new HashMap<>();
         varExprList.forEachVar(v -> newBoundVars.put(v.getName(), v.getName()));
-        AddSparqlVariablesByOp(opExtend.getSubOp().hashCode(), newBoundVars);
+        AddSparqlVariablesByOp(opExtend.hashCode(), newBoundVars);
+        AddSparqlVariablesByOp(opExtend.hashCode(), prevBoundVars);
     }
 
     @Override

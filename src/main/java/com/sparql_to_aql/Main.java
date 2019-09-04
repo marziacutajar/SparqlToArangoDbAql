@@ -9,6 +9,7 @@ import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
 import org.apache.commons.cli.*;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
+import org.apache.jena.sparql.algebra.walker.Walker;
 import org.apache.jena.sparql.sse.SSE;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -75,7 +76,6 @@ public class Main {
 
             //consider also these existing transformers:
             //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment
-
             SSE.write(op);
             OpWalker.walk(op, new ArqToAqlAlgebraVisitor(query.getGraphURIs(), query.getNamedGraphURIs()));
 

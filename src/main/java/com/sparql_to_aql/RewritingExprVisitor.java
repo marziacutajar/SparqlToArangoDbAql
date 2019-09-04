@@ -3,6 +3,7 @@ package com.sparql_to_aql;
 import com.aql.algebra.expressions.constants.Const_Bool;
 import com.aql.algebra.expressions.constants.Const_Number;
 import com.aql.algebra.expressions.constants.Const_String;
+import com.aql.algebra.expressions.functions.Expr_Equals;
 import com.aql.algebra.expressions.functions.Expr_LogicalNot;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.expr.*;
@@ -10,17 +11,22 @@ import org.apache.jena.sparql.expr.*;
 import java.util.LinkedList;
 import java.util.Map;
 
-//TODO IMP consider removing data type for literals from our arangodb documents - you'll know the type if the value is a number, a string, or a boolean, and if it's a language sting it will have lang attribute
+//TODO IMP consider removing data type for literals from our arangodb documents - you'll know the type if the value is a number, a string, or a boolean, and if it's a language string it will have lang attribute
 
 //TODO it's gonna be hard to support expressions outside of filters ie. where we need the result of an expression.. possibly mention this in limitations..
 // because we'll need to apply calculations on the VALUE of the arango doc but then we need the TYPE, DATATYPE, LANG, as well..
 // ideally we know the op in which the expr is being used.. so we can add some other conditions
+//Expr is just an interface and there are other classes that implement it and represent operators - refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/expr/Expr.html
 public class RewritingExprVisitor extends ExprVisitorBase {
     private String aqlExpressionString;
 
     Map<String, String> boundVariables;
 
     private LinkedList<com.aql.algebra.expressions.Expr> createdAqlExprs = new LinkedList<>();
+
+    public com.aql.algebra.expressions.Expr getFinalAqlExpr(){
+        return createdAqlExprs.getFirst();
+    }
 
     public RewritingExprVisitor(Map<String, String> boundVariables){
         this.boundVariables = boundVariables;
@@ -39,15 +45,14 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         //not a priority but possibly support ABS, CEILING, FLOOR, ROUND, STR_LOWER, STR_UPPER, STR_LENGTH
         // remember that for this we'd have to check the VALUE of the arangodb document
         if(func instanceof E_LogicalNot){
-
+            //TODO
         }
         else{
             throw new UnsupportedOperationException("SPARQL expression not supported!");
         }
-        //TODO also visit the arguments ?? or if this is done bottom-up by the visitor then no need..
     }
 
-    //TODO consider improving below using enum + switch
+    //TODO implement below + consider improving using enum + switch
     @Override
     public void visit(ExprFunction2 func){
         if(func instanceof E_Add){

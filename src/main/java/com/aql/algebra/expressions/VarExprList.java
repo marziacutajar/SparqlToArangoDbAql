@@ -2,7 +2,7 @@ package com.aql.algebra.expressions;
 
 import java.util.*;
 
-public class VarExprList {
+public class VarExprList extends Expr {
     private List<Var> vars;
     private LinkedHashMap<Var, Expr> exprs;  // Preserve order.
 
@@ -105,10 +105,11 @@ public class VarExprList {
             return;
         }
 
-        if ( var == null )
+        if (var == null)
             throw new RuntimeException("Attempt to add a named expression with a null variable");
-        if ( exprs.containsKey(var) )
+        if (exprs.containsKey(var))
             throw new RuntimeException("Attempt to assign an expression again");
+
         add(var);
         exprs.put(var, expr);
     }

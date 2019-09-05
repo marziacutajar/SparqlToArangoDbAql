@@ -142,4 +142,36 @@ public class RewritingUtils {
         return exprVisitor.getFinalAqlExpr();
     }
 
+    public static Map<String, String> UpdateBoundVariablesMapping(Map<String, String> boundVariables, String newLetOrForLoopVarName){
+        for (String sparqlVar : boundVariables.keySet()){
+            boundVariables.put(sparqlVar, newLetOrForLoopVarName + "." + sparqlVar);
+        }
+
+        return boundVariables;
+    }
+
+    public static com.aql.algebra.expressions.VarExprList CreateVarExprList(List<Var> varsForExprList, Map<String, String> boundVars){
+        com.aql.algebra.expressions.VarExprList varExprList = new com.aql.algebra.expressions.VarExprList();
+
+        for(Var v: varsForExprList){
+            com.aql.algebra.expressions.Var aqlProjectVar = com.aql.algebra.expressions.Var.alloc(v.getVarName());
+            com.aql.algebra.expressions.Expr varExpr = new Expr_Equals(aqlProjectVar, com.aql.algebra.expressions.Var.alloc(boundVars.get(v.getVarName())));
+            varExprList.add(aqlProjectVar, varExpr);
+        }
+
+        return varExprList;
+    }
+
+    public static com.aql.algebra.expressions.VarExprList CreateVarExprList(Map<String, String> boundVars){
+        com.aql.algebra.expressions.VarExprList varExprList = new com.aql.algebra.expressions.VarExprList();
+
+        for(String v: boundVars.keySet()){
+            com.aql.algebra.expressions.Var aqlProjectVar = com.aql.algebra.expressions.Var.alloc(v);
+            com.aql.algebra.expressions.Expr varExpr = new Expr_Equals(aqlProjectVar, com.aql.algebra.expressions.Var.alloc(boundVars.get(v)));
+            varExprList.add(aqlProjectVar, varExpr);
+        }
+
+        return varExprList;
+    }
+
 }

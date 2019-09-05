@@ -79,9 +79,6 @@ public class Main {
             SSE.write(op);
             OpWalker.walk(op, new ArqToAqlAlgebraVisitor(query.getGraphURIs(), query.getNamedGraphURIs()));
 
-            //OpWalker.walk(op, new RewritingOpVisitor());
-            //TODO use below walker once we're also using the expression walker.. or might have to extend WalkerVisitor instead..
-            //Walker.walk(op, new WalkerVisitor(new RewritingOpVisitor(), new RewritingExprVisitor(), null, null));
             //TODO also consider using before and after visitors if we need them... we might
             //TODO possibly use below tutorial for visitor pattern to translate algebra tree
             //https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P

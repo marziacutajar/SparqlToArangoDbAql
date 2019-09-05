@@ -2,8 +2,6 @@ package com.aql.algebra.operators;
 
 import com.aql.algebra.OpVisitor;
 
-//TODO choose between using this op or using OpNesting...
-// personally I prefer the latter cause nesting isn't really an Op per se..
 //op used to nest for loops
 public class OpNest extends Op2{
 

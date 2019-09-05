@@ -217,26 +217,45 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpLeftJoin opLeftJoin){
-        //TODO take array results of left and right subqueries
-        //add a filter on the right side results to make sure common variables match to those on the left,
-        //opLeftJoin.getExprs();
-        String outerLoopVarName = forLoopVarGenerator.getNew();
-        new OpFor(outerLoopVarName, com.aql.algebra.expressions.Var.alloc("left_results"));
-        String subqueryVar = forLoopVarGenerator.getNew();
-        Op subquery = new OpFor(subqueryVar, com.aql.algebra.expressions.Var.alloc("right_results"));
-        ExprList filterExprs = new ExprList();
-        //TODO add common filter exprs here - use var names created
-        subquery = com.aql.algebra.operators.OpFilter.filterBy(filterExprs, subquery);
-        subquery = new com.aql.algebra.operators.OpProject(subquery, com.aql.algebra.expressions.Var.alloc(subqueryVar), false);
-        new com.aql.algebra.operators.OpAssign("filtered_right_side", subquery);
+        Op leftOp = createdAqlOps.removeFirst();
+        Op rightOp = createdAqlOps.removeFirst();
 
-        Op subquery2 = new OpFor("right_result_to_join", new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(com.aql.algebra.expressions.Var.alloc("filtered_right_side")), new Const_Number(0)), com.aql.algebra.expressions.Var.alloc("filtered_right_side"), new Const_Array(null)));
+        Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opLeftJoin.getLeft().hashCode());
+        Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opLeftJoin.getRight().hashCode());
 
-        //TODO do below
-        //subquery2 = new com.aql.algebra.operators.OpProject(subquery2, new VarExpr());
-        //System.out.println("FOR right_result_to_join IN (LENGTH(filtered_right_side) > 0 ? filtered_right_side : [{}])");
-        //System.out.println("RETURN { left: x, right: right_result_to_join}");
-        //TODO consider using MERGE function...
+        if(!(leftOp instanceof com.aql.algebra.operators.OpProject) && !(leftOp instanceof OpFor)){
+            //add project over left op + let stmt and then create for loop which we need
+            leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateVarExprList(leftBoundVars), false);
+            leftOp = AddNewAssignmentAndLoop(leftOp, leftBoundVars);
+        }
+
+        if(!(rightOp instanceof com.aql.algebra.operators.OpProject)){
+            //TODO add a filter on the right side results to make sure common variables match to those on the left
+            //opLeftJoin.getExprs();
+            //ExprList filterExprs = new ExprList();
+            //subquery = com.aql.algebra.operators.OpFilter.filterBy(filterExprs, subquery);
+
+            //add project over right op + let stmt
+            rightOp = new com.aql.algebra.operators.OpProject(rightOp, RewritingUtils.CreateVarExprList(rightBoundVars), false);
+        }
+        else{
+            //TODO add a filter on the right side results to make sure common variables match to those on the left
+            // it's possible to add filter stmts within the project stmt to avoid an extra assignment
+            //TODO add let stmt
+        }
+
+        OpAssign innerAssignment = new OpAssign(assignmentVarGenerator.getNew(), rightOp);
+
+        Op newOp = new com.aql.algebra.operators.OpExtend(leftOp, innerAssignment);
+        String outerLoopVarName = forLoopVarGenerator.getCurrent();
+
+        Op subquery = new OpFor(forLoopVarGenerator.getNew(), new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(com.aql.algebra.expressions.Var.alloc(assignmentVarGenerator.getCurrent())), new Const_Number(0)), com.aql.algebra.expressions.Var.alloc(assignmentVarGenerator.getCurrent()), new Const_Array(null)));
+        newOp = new OpNest(newOp, subquery);
+
+        newOp = new com.aql.algebra.operators.OpProject(newOp, new Expr_Merge(com.aql.algebra.expressions.Var.alloc(outerLoopVarName), com.aql.algebra.expressions.Var.alloc(forLoopVarGenerator.getCurrent())),false);
+
+        createdAqlOps.push(newOp);
+        //TODO add bound vars to map
     }
 
     //TODO what if instead of an OpMinus op in AQL we use a JOIN with not equals filter conditions??

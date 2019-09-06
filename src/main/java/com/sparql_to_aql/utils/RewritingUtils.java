@@ -143,8 +143,9 @@ public class RewritingUtils {
     }
 
     public static Map<String, String> UpdateBoundVariablesMapping(Map<String, String> boundVariables, String newLetOrForLoopVarName){
+        String prefix = newLetOrForLoopVarName == null ? "" : newLetOrForLoopVarName + ".";
         for (String sparqlVar : boundVariables.keySet()){
-            boundVariables.put(sparqlVar, newLetOrForLoopVarName + "." + sparqlVar);
+            boundVariables.put(sparqlVar, prefix + sparqlVar);
         }
 
         return boundVariables;
@@ -172,6 +173,16 @@ public class RewritingUtils {
         }
 
         return varExprList;
+    }
+
+    public static com.aql.algebra.expressions.ExprList GetFiltersOnCommonVars(Map<String, String> leftBoundVars, Map<String, String> rightBoundVars){
+        Set<String> commonVars = MapUtils.GetCommonMapKeys(leftBoundVars, rightBoundVars);
+        com.aql.algebra.expressions.ExprList filtersExprs = new com.aql.algebra.expressions.ExprList();
+        for (String commonVar: commonVars){
+            filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftBoundVars.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(rightBoundVars.get(commonVar)))));
+        }
+
+        return filtersExprs;
     }
 
 }

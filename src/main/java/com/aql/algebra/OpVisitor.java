@@ -6,19 +6,15 @@ public interface OpVisitor
 {
     // Op0
     public void visit(OpFor opFor);
-    public void visit(OpExtend opExtend);
 
     //Op1
     public void visit(OpFilter opFilter);
-    //public void visit(AqlOpGraph opGraph);
-    //public void visit(OpDatasetNames dsNames);
-    //public void visit(OpLabel opLabel);
     public void visit(OpAssign opAssign);
-    //public void visit(AqlOpExtend opExtend);
+    public void visit(OpExtend opExtend);
 
     // Op2
     //public void visit(OpUnion opUnion);
-    public void visit(OpMinus opMinus);
+    //public void visit(OpMinus opMinus);
     public void visit(OpNest opNest);
 
     // OpN

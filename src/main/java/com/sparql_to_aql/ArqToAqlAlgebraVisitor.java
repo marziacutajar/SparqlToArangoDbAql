@@ -18,6 +18,7 @@ import com.sparql_to_aql.utils.RewritingUtils;
 import com.sparql_to_aql.utils.VariableGenerator;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
+import org.apache.jena.query.Query;
 import org.apache.jena.query.SortCondition;
 import org.apache.jena.sparql.algebra.op.*;
 import org.apache.jena.sparql.algebra.op.OpExtend;
@@ -47,6 +48,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     //This method is to be called after the visitor has been used
     public List<Op> GetAqlAlgebraQueryExpression()
     {
+        _aqlAlgebraQueryExpressionTree.add(createdAqlOps.getFirst());
+
         return _aqlAlgebraQueryExpressionTree;
     }
 
@@ -63,6 +66,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     public ArqToAqlAlgebraVisitor(List<String> defaultGraphNames, List<String> namedGraphs){
         this.defaultGraphNames = defaultGraphNames;
         this.namedGraphNames = namedGraphs;
+        this._aqlAlgebraQueryExpressionTree = new ArrayList<>();
     }
 
     private void AddSparqlVariablesByOp(Integer opHashCode, Map<String, String> variables){
@@ -379,8 +383,18 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         for (int i= 0; i < sortConditionList.size(); i++) {
             SortCondition currCond = sortConditionList.get(i);
-            //direction = 1 if ASC, -1 if DESC, -2 if unspecified (default asc)
-            com.aql.algebra.SortCondition.Direction direction = currCond.getDirection() == -1 ? com.aql.algebra.SortCondition.Direction.DESC : com.aql.algebra.SortCondition.Direction.ASC;
+
+            com.aql.algebra.SortCondition.Direction direction;
+            switch (currCond.getDirection()){
+                case Query.ORDER_ASCENDING:
+                    direction = com.aql.algebra.SortCondition.Direction.ASC;
+                    break;
+                case Query.ORDER_DESCENDING:
+                    direction = com.aql.algebra.SortCondition.Direction.DESC;
+                    break;
+                default:
+                    direction = com.aql.algebra.SortCondition.Direction.DEFAULT;
+            }
             //TODO here we're assuming expr is definitely a variable.. would be better to use expression visitor and get resulting AQL expression from it.. imp to also use boundVars map here
             aqlSortConds.add(new com.aql.algebra.SortCondition(com.aql.algebra.expressions.Var.alloc(boundVars.get(currCond.getExpression().getVarName())), direction));
         }

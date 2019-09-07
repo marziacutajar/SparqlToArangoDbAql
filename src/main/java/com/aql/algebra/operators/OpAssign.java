@@ -10,12 +10,19 @@ public class OpAssign extends Op0{
     private Expr exprValue;
     private Op opValue;
 
+    boolean assigningOp;
+    boolean assigningExpr;
+
     public OpAssign(String variableName, Expr exprValue){
         OpAssign(variableName, exprValue, null);
+        assigningOp = false;
+        assigningExpr = true;
     }
 
     public OpAssign(String variableName, Op opValue){
         OpAssign(variableName, null, opValue);
+        assigningOp = true;
+        assigningExpr = false;
     }
 
     private void OpAssign(String variableName, Expr exprValue, Op opValue){
@@ -26,6 +33,16 @@ public class OpAssign extends Op0{
 
     @Override
     public String getName() { return AqlConstants.keywordLet; }
+
+    public String getVariableName() { return variableName; }
+
+    public Expr getExpr() { return exprValue; }
+
+    public Op getOp() { return opValue; }
+
+    public boolean assignsOp(){ return assigningOp; }
+
+    public boolean assignsExpr(){ return assigningExpr; }
 
     @Override
     public Op0 copy(){

@@ -10,7 +10,8 @@ public class SortCondition {
 
     public enum Direction {
         ASC,
-        DESC
+        DESC,
+        DEFAULT
     }
 
     public SortCondition(Var var, Direction dir)

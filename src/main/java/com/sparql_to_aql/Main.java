@@ -1,5 +1,6 @@
 package com.sparql_to_aql;
 
+import com.aql.algebra.AqlQuerySerializer;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
@@ -14,6 +15,7 @@ import org.apache.jena.sparql.sse.SSE;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 
 public class Main {
 
@@ -54,8 +56,8 @@ public class Main {
             SSE.write(op);
 
             //TODO below is used to get query back to SPARQL query form - create something similar for changing AQL query expression tree into string form
-            //Query queryForm = OpAsQuery.asQuery(op);
-            //System.out.println(queryForm.serialize());
+            Query queryForm = OpAsQuery.asQuery(op);
+            System.out.println(queryForm.serialize());
 
             System.out.println("initial validation and optimization of algebra");
             //call any optimization transformers on the algebra tree
@@ -77,7 +79,19 @@ public class Main {
             //consider also these existing transformers:
             //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment
             SSE.write(op);
-            OpWalker.walk(op, new ArqToAqlAlgebraVisitor(query.getGraphURIs(), query.getNamedGraphURIs()));
+            ArqToAqlAlgebraVisitor queryExpressionTranslator = new ArqToAqlAlgebraVisitor(query.getGraphURIs(), query.getNamedGraphURIs());
+            OpWalker.walk(op, queryExpressionTranslator);
+
+            //Use AQL query serializer to output actual AQL query to console - TODO later actually don't output it to console and send query to database
+            AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(System.out);
+
+            List<com.aql.algebra.operators.Op> aqlQueryExpressionSubParts = queryExpressionTranslator.GetAqlAlgebraQueryExpression();
+            for(com.aql.algebra.operators.Op aqlQueryPart: aqlQueryExpressionSubParts){
+                //TODO this might be an issue... best to use OpSequence and iterate inside the serializer instead..
+                // or call another method here that tells serializer to just add text to current query with correct indents...
+                aqlQueryPart.visit(aqlQuerySerializer);
+                aqlQuerySerializer.finishVisit();
+            }
 
             //TODO also consider using before and after visitors if we need them... we might
             //TODO possibly use below tutorial for visitor pattern to translate algebra tree

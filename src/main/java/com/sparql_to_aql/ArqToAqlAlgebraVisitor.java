@@ -104,6 +104,10 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         Op currAqlOp = null;
         Map<String, String> usedVars = new HashMap<>();
         boolean firstTripleBeingProcessed = true;
+
+        //using this variable, we will make sure the graph name of every triple matching the BGP is in the same graph
+        String outerGraphVarToMatch = "";
+
         for(Triple triple : opBgp.getPattern().getList()){
             //keep list of FILTER clauses per triple
             ExprList filterConditions = new ExprList();
@@ -111,11 +115,10 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             String iterationVar = forLoopVarGenerator.getNew();
             Op aqlOp = new OpFor(iterationVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.rdfCollectionName));
 
-            //using this variable, we will make sure the graph name of every triple matching the BGP is in the same graph
-            String outerGraphVarToMatch = AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);
-
             //if this is the first for loop and there are named graphs specified, add filters for those named graphs
             if(firstTripleBeingProcessed){
+                outerGraphVarToMatch = AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);
+
                 if(bgpWithGraphNode){
                     if(graphNode.isVariable()){
                         AddGraphFilters(namedGraphNames, iterationVar, filterConditions);
@@ -137,7 +140,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             }
             else{
                 //make sure that graph name for consecutive triples matches the one of the first triple
-                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(outerGraphVarToMatch), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE))));
+                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE)), com.aql.algebra.expressions.Var.alloc(outerGraphVarToMatch)));
             }
 
             RewritingUtils.ProcessTripleNode(triple.getSubject(), NodeRole.SUBJECT, iterationVar, filterConditions, usedVars);
@@ -181,6 +184,9 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             opTable = (OpTable) opJoin.getRight();
             boundVariablesInOp1ToJoin = GetSparqlVariablesByOp(opJoin.getLeft().hashCode());
         }
+        else{
+            boundVariablesInOp1ToJoin = GetSparqlVariablesByOp(opJoin.getLeft().hashCode());
+        }
 
         if(opToJoin1 instanceof com.aql.algebra.operators.OpProject){
             opToJoin1 = AddNewAssignmentAndLoop(opToJoin1, boundVariablesInOp1ToJoin);
@@ -206,13 +212,16 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
             Set<String> commonVars = MapUtils.GetCommonMapKeys(boundVariablesInOp1ToJoin, boundVariablesInOp2ToJoin);
 
-            ExprList filtersExprs = new ExprList();
-            for (String commonVar: commonVars){
-                filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVariablesInOp1ToJoin.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVariablesInOp2ToJoin.get(commonVar)))));
+            if(commonVars.size() > 0) {
+                ExprList filtersExprs = new ExprList();
+                for (String commonVar : commonVars) {
+                    filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVariablesInOp1ToJoin.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVariablesInOp2ToJoin.get(commonVar)))));
+                }
+                opToJoin2 = new com.aql.algebra.operators.OpFilter(filtersExprs, opToJoin2);
             }
 
             //nest one for loop in the other and add filter statements
-            opToJoin1 = new OpNest(opToJoin1, new com.aql.algebra.operators.OpFilter(filtersExprs, opToJoin2));
+            opToJoin1 = new OpNest(opToJoin1, opToJoin2);
             createdAqlOps.add(opToJoin1);
         }
     }
@@ -395,8 +404,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
                 default:
                     direction = com.aql.algebra.SortCondition.Direction.DEFAULT;
             }
-            //TODO here we're assuming expr is definitely a variable.. would be better to use expression visitor and get resulting AQL expression from it.. imp to also use boundVars map here
-            aqlSortConds.add(new com.aql.algebra.SortCondition(com.aql.algebra.expressions.Var.alloc(boundVars.get(currCond.getExpression().getVarName())), direction));
+
+            aqlSortConds.add(new com.aql.algebra.SortCondition(RewritingUtils.ProcessExpr(currCond.getExpression(), boundVars), direction));
         }
 
         OpSort aqlSort = new OpSort(orderSubOp, aqlSortConds);

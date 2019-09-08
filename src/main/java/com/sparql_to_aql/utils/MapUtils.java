@@ -1,20 +1,14 @@
 package com.sparql_to_aql.utils;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class MapUtils {
-    public static Set<String> GetCommonMapKeys(Map<String, String>... maps){
-        Set<String> commonVars = new HashSet<>();
-        for(Map<String, String> map: maps){
-            if(commonVars.isEmpty()){
-                commonVars = map.keySet();
-            }
-            else{
-                commonVars.retainAll(map.keySet());
-            }
-        }
+public class MapUtils{
+
+    public static Set<String> GetCommonMapKeys(Map<String, String> map1, Map<String, String> map2){
+        Set<String> commonVars = map1.keySet();
+
+        commonVars.retainAll(map2.keySet());
 
         return commonVars;
     }

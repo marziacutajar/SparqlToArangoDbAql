@@ -1,5 +1,7 @@
 package com.aql.algebra.expressions;
 
+import com.aql.algebra.ExprVisitor;
+
 public abstract class Expr {
 
     public boolean isExpr()     { return true; }
@@ -21,5 +23,5 @@ public abstract class Expr {
     public ExprFunction getFunction()   { return null; }
 
     //public String toString()            { return WriterExpr.asString(this); }
-    //public void visit(ExprVisitor visitor) { visitor.visit(this); }
+    public void visit(ExprVisitor visitor) {  }
 }

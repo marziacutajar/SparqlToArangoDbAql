@@ -1,5 +1,7 @@
 package com.aql.algebra.expressions;
 
+import com.aql.algebra.ExprVisitor;
+
 public class Var extends Expr
 {
     final protected String name;
@@ -61,5 +63,8 @@ public class Var extends Expr
             throw new RuntimeException("Invalid variable found");
         return false;
     }
+
+    @Override
+    public void visit(ExprVisitor visitor) { visitor.visit(this); }
 }
 

@@ -1,5 +1,7 @@
 package com.aql.algebra.expressions;
 
+import com.aql.algebra.ExprVisitor;
+
 public class ExprVar extends Expr{
     protected Var var = null;
 
@@ -12,10 +14,10 @@ public class ExprVar extends Expr{
 
     //public Expr copy(Var v)  { return new ExprVar(v); }
 
-    /*@Override
+    @Override
     public void visit(ExprVisitor visitor) { visitor.visit(this); }
 
-    public Expr apply(ExprTransform transform)  {
+    /*public Expr apply(ExprTransform transform)  {
         if ( transform == null )
             throw new NullPointerException();
         return transform.transform(this); }

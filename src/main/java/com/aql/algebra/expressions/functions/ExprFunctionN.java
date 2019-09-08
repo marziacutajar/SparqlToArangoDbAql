@@ -1,5 +1,6 @@
 package com.aql.algebra.expressions.functions;
 
+import com.aql.algebra.ExprVisitor;
 import com.aql.algebra.expressions.Expr;
 import com.aql.algebra.expressions.ExprFunction;
 import com.aql.algebra.expressions.ExprList;
@@ -49,7 +50,8 @@ public abstract class ExprFunctionN extends ExprFunction {
     public abstract Expr copy(Expr... newArgs);
 
     /*@Override
-    public void visit(ExprVisitor visitor) { visitor.visit(this); }
-    public Expr apply(ExprTransform transform, ExprList exprList) { return transform.transform(this, exprList); }*/
+    public void visit(ExprVisitor visitor) { visitor.visit(this); }*/
+
+    /*public Expr apply(ExprTransform transform, ExprList exprList) { return transform.transform(this, exprList); }*/
 
 }

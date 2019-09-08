@@ -1,5 +1,6 @@
 package com.aql.algebra.expressions;
 
+import com.aql.algebra.ExprVisitor;
 import com.sparql_to_aql.exceptions.AqlExprTypeException;
 
 public abstract class Constant extends Expr
@@ -38,6 +39,9 @@ public abstract class Constant extends Expr
     {
         throw ex;
     }
+
+    @Override
+    public void visit(ExprVisitor visitor) { visitor.visit(this); }
 
     /*@Override
     public String toString()

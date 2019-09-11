@@ -1,5 +1,7 @@
 package com.aql.algebra.expressions;
 
+import com.aql.algebra.ExprVisitor;
+
 import java.util.*;
 
 public class VarExprList extends Expr {
@@ -99,7 +101,7 @@ public class VarExprList extends Expr {
     //TODO change exceptions thrown below.. maybe custom exception?
     public void add(Var var, Expr expr)
     {
-        if ( expr == null )
+        if (expr == null)
         {
             add(var);
             return;
@@ -158,4 +160,7 @@ public class VarExprList extends Expr {
     {
         return vars.toString() + " // "+exprs.toString();
     }
+
+    @Override
+    public void visit(ExprVisitor visitor) { visitor.visit(this); }
 }

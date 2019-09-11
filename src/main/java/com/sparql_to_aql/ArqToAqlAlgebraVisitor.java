@@ -369,8 +369,10 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             }
         }
 
-        List<com.aql.algebra.expressions.Expr> returnVariables = projectableVars.stream().map(v -> com.aql.algebra.expressions.Var.alloc(v.getVarName()))
-                .collect(Collectors.toList());
+        com.aql.algebra.expressions.VarExprList returnVariables = new com.aql.algebra.expressions.VarExprList();
+        for (Var v : projectableVars) {
+            returnVariables.add(com.aql.algebra.expressions.Var.alloc(v.getVarName()), com.aql.algebra.expressions.Var.alloc(boundSparqlVariablesByOp.get(opProject.getSubOp().hashCode()).get(v.getVarName())));
+        }
 
         Op returnStmt = new com.aql.algebra.operators.OpProject(currOp, returnVariables, useDistinct);
 
@@ -416,8 +418,12 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpSlice opSlice){
         Op currOp = createdAqlOps.removeLast();
+        long start = opSlice.getStart();
+        if(opSlice.getStart() < 0)
+            start = 0;
 
-        createdAqlOps.add(new OpLimit(currOp, opSlice.getStart(), opSlice.getLength()));
+        createdAqlOps.add(new OpLimit(currOp, start, opSlice.getLength()));
+        SetSparqlVariablesByOp(opSlice.hashCode(), GetSparqlVariablesByOp(opSlice.getSubOp().hashCode()));
     }
 
     private void AddGraphFilters(List<String> graphNames, String forLoopVarName, ExprList filterConditions){

@@ -1,9 +1,6 @@
 package com.aql.algebra;
 
-import com.aql.algebra.expressions.Constant;
-import com.aql.algebra.expressions.ExprAggregator;
-import com.aql.algebra.expressions.ExprVar;
-import com.aql.algebra.expressions.Var;
+import com.aql.algebra.expressions.*;
 import com.aql.algebra.expressions.functions.*;
 
 public interface ExprVisitor {
@@ -14,6 +11,7 @@ public interface ExprVisitor {
     //void visit(ExprFunctionN func) ;
     void visit(Constant c) ;
     void visit(ExprVar ev) ;
+    void visit(VarExprList ve) ;
     //void visit(ExprAggregator eAgg) ;
     void visit(Var v) ;
 }

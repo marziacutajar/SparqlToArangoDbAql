@@ -14,7 +14,10 @@ import org.apache.jena.sparql.expr.NodeValue;
 
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
     static final int BLOCK_INDENT = 5;
@@ -113,9 +116,17 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
 
         indent();
         out.print("RETURN ");
-        op.getExprs();
-        //TODO visit exprs here and print out its serialization
-        out.println();
+        out.print("{");
+        List<Expr> exprs = op.getExprs();
+
+        for(int i=0; i < exprs.size(); i++){
+            exprs.get(i).visit(this);
+            if(i < exprs.size()-1 ){
+                out.print(", ");
+            }
+        }
+
+        out.println("}");
     }
 
     public void visit(OpLimit op){
@@ -123,7 +134,7 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
             op.getSubOp().visit(this);
 
         indent();
-        out.println("LIMIT " + op.getStart() + ", " + op.getLength());
+        out.println("LIMIT " + (op.getStart() > 0 ? op.getStart() + ", " : "") + op.getLength());
     }
 
     public void visit(OpCollect op){
@@ -170,6 +181,18 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
 
     public void visit(Var var){
         out.print(var.getVarName());
+    }
+
+    public void visit(VarExprList exprs){
+        Iterator<Map.Entry<Var, Expr>> it = exprs.getExprs().entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<Var, Expr> pair = it.next();
+            out.print(pair.getKey().getVarName() + ": ");
+            pair.getValue().visit(this);
+            if(it.hasNext()){
+                out.print(", ");
+            }
+        }
     }
 
     public void visit(OpSequence opSequence){

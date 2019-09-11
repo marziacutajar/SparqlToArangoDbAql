@@ -4,9 +4,7 @@ import com.aql.algebra.expressions.*;
 import com.aql.algebra.expressions.constants.Const_Bool;
 import com.aql.algebra.expressions.constants.Const_Number;
 import com.aql.algebra.expressions.constants.Const_String;
-import com.aql.algebra.expressions.functions.ExprFunction0;
-import com.aql.algebra.expressions.functions.ExprFunction1;
-import com.aql.algebra.expressions.functions.ExprFunction2;
+import com.aql.algebra.expressions.functions.*;
 import com.aql.algebra.operators.*;
 import com.sparql_to_aql.utils.AqlUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -37,9 +35,19 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
     }
 
     public void visit(OpFor opFor){
+        boolean useBrackets = false;
         indent();
         out.print("FOR " + opFor.getIterationVar() + " IN ");
+        Expr dataArrayExpr = opFor.getDataArrayExpr();
+        if(!(dataArrayExpr instanceof Var)) {
+            useBrackets = true;
+            out.print("(");
+        }
+
         opFor.getDataArrayExpr().visit(this);
+        if(useBrackets)
+            out.print(")");
+        
         out.println();
     }
 
@@ -61,7 +69,7 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
 
     public void visit(OpAssign opAssign){
         indent();
-        out.print("LET " + opAssign.getVariableName() + "= ");
+        out.print("LET " + opAssign.getVariableName() + " = ");
 
         if(opAssign.assignsExpr()){
 
@@ -114,10 +122,16 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
         if(op.getSubOp() != null)
             op.getSubOp().visit(this);
 
+        List<Expr> exprs = op.getExprs();
+        boolean useBrackets = false;
+        if(exprs.size() == 1 && exprs.get(0) instanceof VarExprList){
+            useBrackets = true;
+        }
         indent();
         out.print("RETURN ");
-        out.print("{");
-        List<Expr> exprs = op.getExprs();
+
+        if(useBrackets)
+            out.print("{");
 
         for(int i=0; i < exprs.size(); i++){
             exprs.get(i).visit(this);
@@ -126,7 +140,8 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
             }
         }
 
-        out.println("}");
+        if(useBrackets)
+            out.println("}");
     }
 
     public void visit(OpLimit op){
@@ -163,6 +178,27 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
             expr.getArg2().visit(this);
             out.print(")");
         }
+    }
+
+    public void visit(ExprFunction3 expr){
+        if(expr instanceof Expr_Conditional){
+            expr.getArg1().visit(this);
+            out.print(" ? ");
+            expr.getArg2().visit(this);
+            out.print(" : ");
+            expr.getArg3().visit(this);
+        }
+    }
+
+    public void visit(ExprFunctionN expr){
+        out.print(expr.getFunctionName() + "(");
+        List<Expr> functionArgs = expr.getArgs();
+        for(int i=0; i < functionArgs.size(); i++){
+            functionArgs.get(i).visit(this);
+            if(i < functionArgs.size()-1)
+                out.print(",");
+        }
+        out.print(")");
     }
 
     public void visit(Constant expr){

@@ -226,6 +226,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         }
     }
 
+    //TODO fix bugs below
     @Override
     public void visit(OpLeftJoin opLeftJoin){
         Op leftOp = createdAqlOps.removeFirst();
@@ -236,9 +237,10 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         if(!(leftOp instanceof com.aql.algebra.operators.OpProject) && !(leftOp instanceof OpFor)){
             //add project over left op + let stmt and then create for loop which we need
-            leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateVarExprList(leftBoundVars), false);
-            leftOp = AddNewAssignmentAndLoop(leftOp, leftBoundVars);
+            leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateProjectionVarExprList(leftBoundVars), false);
         }
+
+        leftOp = AddNewAssignmentAndLoop(leftOp, leftBoundVars);
 
         //add filters on the right side results to make sure common variables match to those on the left
         ExprList filtersExprs = RewritingUtils.GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
@@ -248,7 +250,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             rightOp = new com.aql.algebra.operators.OpFilter(filtersExprs, rightOp);
 
             //add project over right op
-            rightOp = new com.aql.algebra.operators.OpProject(rightOp, RewritingUtils.CreateVarExprList(rightBoundVars), false);
+            rightOp = new com.aql.algebra.operators.OpProject(rightOp, RewritingUtils.CreateProjectionVarExprList(rightBoundVars), false);
         }
         else{
             //add filter stmts within the project stmt to avoid an extra assignment
@@ -331,11 +333,11 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opUnion.getRight().hashCode());
 
         if(!(leftOp instanceof com.aql.algebra.operators.OpProject)){
-            leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateVarExprList(leftBoundVars), false);
+            leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateProjectionVarExprList(leftBoundVars), false);
         }
 
         if(!(rightOp instanceof com.aql.algebra.operators.OpProject)){
-            rightOp = new com.aql.algebra.operators.OpProject(rightOp, RewritingUtils.CreateVarExprList(rightBoundVars), false);
+            rightOp = new com.aql.algebra.operators.OpProject(rightOp, RewritingUtils.CreateProjectionVarExprList(rightBoundVars), false);
         }
 
         AddNewAssignment(leftOp);
@@ -356,6 +358,11 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         Op currOp = createdAqlOps.removeLast();
         List<Var> projectableVars = opProject.getVars();
+        Map<String, String> boundVars = boundSparqlVariablesByOp.get(opProject.getSubOp().hashCode());
+
+        if(currOp instanceof com.aql.algebra.operators.OpProject){
+            currOp = AddNewAssignmentAndLoop(currOp, boundVars);
+        }
 
         if(opProject instanceof OpDistinctProject){
             if(projectableVars.size() == 1){
@@ -365,14 +372,11 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
                 //SELECT DISTINCT WITH >1 VAR = COLLECT in AQL... consider mentioning this in thesis writeup in AQL algebra
 
                 //apply collect stmt over current projectionSubOp
-                currOp = new OpCollect(currOp, RewritingUtils.CreateVarExprList(projectableVars, boundSparqlVariablesByOp.get(opProject.getSubOp().hashCode())), null);
+                currOp = new OpCollect(currOp, RewritingUtils.CreateCollectVarExprList(projectableVars, boundVars), null);
             }
         }
 
-        com.aql.algebra.expressions.VarExprList returnVariables = new com.aql.algebra.expressions.VarExprList();
-        for (Var v : projectableVars) {
-            returnVariables.add(com.aql.algebra.expressions.Var.alloc(v.getVarName()), com.aql.algebra.expressions.Var.alloc(boundSparqlVariablesByOp.get(opProject.getSubOp().hashCode()).get(v.getVarName())));
-        }
+        com.aql.algebra.expressions.VarExprList returnVariables = RewritingUtils.CreateProjectionVarExprList(projectableVars, boundVars);
 
         Op returnStmt = new com.aql.algebra.operators.OpProject(currOp, returnVariables, useDistinct);
 

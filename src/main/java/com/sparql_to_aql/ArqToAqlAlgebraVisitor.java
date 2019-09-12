@@ -1,5 +1,6 @@
 package com.sparql_to_aql;
 
+import com.aql.algebra.expressions.constants.Const_Object;
 import com.aql.algebra.operators.*;
 import com.aql.algebra.operators.OpAssign;
 import com.sparql_to_aql.constants.ArangoAttributes;
@@ -16,6 +17,7 @@ import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.MapUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
 import com.sparql_to_aql.utils.VariableGenerator;
+import org.apache.jena.base.Sys;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.Query;
@@ -71,7 +73,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     private void AddSparqlVariablesByOp(Integer opHashCode, Map<String, String> variables){
         Map<String, String> currUsedVars = GetSparqlVariablesByOp(opHashCode);
-        if(currUsedVars == null) {
+        if(currUsedVars == null || currUsedVars.size() == 0) {
             boundSparqlVariablesByOp.put(opHashCode, variables);
         }
         else {
@@ -166,7 +168,6 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpJoin opJoin){
-        System.out.println("Entering join");
         Op opToJoin1 = createdAqlOps.removeFirst();
         //whether we use LET stsms or not here depends if the ops being joined include a projection or not
         boolean joinToValuesTable = false;
@@ -247,7 +248,8 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //opLeftJoin.getExprs();
 
         if(!(rightOp instanceof com.aql.algebra.operators.OpProject)){
-            rightOp = new com.aql.algebra.operators.OpFilter(filtersExprs, rightOp);
+            if(filtersExprs.size() > 0)
+                rightOp = new com.aql.algebra.operators.OpFilter(filtersExprs, rightOp);
 
             //add project over right op
             rightOp = new com.aql.algebra.operators.OpProject(rightOp, RewritingUtils.CreateProjectionVarExprList(rightBoundVars), false);
@@ -263,7 +265,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         Op newOp = new com.aql.algebra.operators.OpExtend(leftOp, innerAssignment);
         String outerLoopVarName = forLoopVarGenerator.getCurrent();
 
-        Op subquery = new OpFor(forLoopVarGenerator.getNew(), new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(com.aql.algebra.expressions.Var.alloc(assignmentVarGenerator.getCurrent())), new Const_Number(0)), com.aql.algebra.expressions.Var.alloc(assignmentVarGenerator.getCurrent()), new Const_Array(null)));
+        Op subquery = new OpFor(forLoopVarGenerator.getNew(), new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(com.aql.algebra.expressions.Var.alloc(assignmentVarGenerator.getCurrent())), new Const_Number(0)), com.aql.algebra.expressions.Var.alloc(assignmentVarGenerator.getCurrent()), new Const_Array(new Const_Object())));
         newOp = new OpNest(newOp, subquery);
 
         newOp = new com.aql.algebra.operators.OpProject(newOp, new Expr_Merge(com.aql.algebra.expressions.Var.alloc(outerLoopVarName), com.aql.algebra.expressions.Var.alloc(forLoopVarGenerator.getCurrent())),false);

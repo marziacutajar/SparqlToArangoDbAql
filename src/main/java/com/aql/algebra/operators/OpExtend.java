@@ -27,6 +27,10 @@ public class OpExtend extends Op1{
     @Override
     public String getName() { return "extend"; }
 
+    public List<OpAssign> getAssignments(){
+        return assignments;
+    }
+
     @Override
     public void visit(OpVisitor opVisitor) { opVisitor.visit(this); }
 

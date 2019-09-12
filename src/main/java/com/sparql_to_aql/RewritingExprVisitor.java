@@ -1,6 +1,7 @@
 package com.sparql_to_aql;
 
 import com.aql.algebra.expressions.constants.Const_Bool;
+import com.aql.algebra.expressions.constants.Const_Null;
 import com.aql.algebra.expressions.constants.Const_Number;
 import com.aql.algebra.expressions.constants.Const_String;
 import com.aql.algebra.expressions.functions.*;
@@ -59,7 +60,9 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         if(func instanceof E_LogicalNot){
             createdAqlExprs.push(new Expr_LogicalNot(createdAqlExprs.removeLast()));
         }
-        else{
+        else if(func instanceof E_Bound) {
+            createdAqlExprs.push(new Expr_NotEquals(createdAqlExprs.removeLast(), new Const_Null()));
+        }else{
             throw new UnsupportedOperationException("SPARQL expression not supported!");
         }
     }
@@ -144,7 +147,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
 
     @Override
     public void visit(ExprVar e){
-        createdAqlExprs.push(new com.aql.algebra.expressions.ExprVar(e.getVarName()));
+        createdAqlExprs.push(new com.aql.algebra.expressions.ExprVar(boundVariables.get(e.getVarName())));
     }
 
     @Override

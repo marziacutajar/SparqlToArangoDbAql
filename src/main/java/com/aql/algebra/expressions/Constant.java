@@ -20,16 +20,27 @@ public abstract class Constant extends Expr
     public boolean isBoolean()      { return false; }
     public boolean isString()       { return false; }
     public boolean isNumber()       { return false; }
+    public boolean isArray()        { return false; }
+    public boolean isObject()       { return false; }
+    public boolean isNull()         { return false; }
 
     public boolean getBoolean() throws AqlExprTypeException {
         raise(new AqlExprTypeException("Not a boolean: "+this)); return false;
     }
 
-    public String  getString() throws AqlExprTypeException {
+    public String getString() throws AqlExprTypeException {
         raise(new AqlExprTypeException("Not a string: "+this)); return null;
     }
     public double getNumber() throws AqlExprTypeException {
         raise(new AqlExprTypeException("Not a double: "+this)); return Double.NaN;
+    }
+
+    public Constant[] getArray() throws AqlExprTypeException {
+        raise(new AqlExprTypeException("Not an array: "+this)); return null;
+    }
+
+    public VarExprList getObject() throws AqlExprTypeException {
+        raise(new AqlExprTypeException("Not an object: "+this)); return null;
     }
 
     //public Expr apply(ExprTransform transform)  { return transform.transform(this); }

@@ -1,21 +1,16 @@
 package com.aql.algebra;
 
 import com.aql.algebra.expressions.*;
-import com.aql.algebra.expressions.constants.Const_Bool;
-import com.aql.algebra.expressions.constants.Const_Number;
-import com.aql.algebra.expressions.constants.Const_String;
+import com.aql.algebra.expressions.constants.*;
 import com.aql.algebra.expressions.functions.*;
 import com.aql.algebra.operators.*;
 import com.sparql_to_aql.utils.AqlUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.jena.sparql.expr.NodeValue;
-
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
     static final int BLOCK_INDENT = 5;
@@ -47,7 +42,7 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
         opFor.getDataArrayExpr().visit(this);
         if(useBrackets)
             out.print(")");
-        
+
         out.println();
     }
 
@@ -72,7 +67,7 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
         out.print("LET " + opAssign.getVariableName() + " = ");
 
         if(opAssign.assignsExpr()){
-
+            opAssign.getExpr().visit(this);
         }else{
             out.print("(");
             opAssign.getOp().visit(this);
@@ -84,6 +79,8 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
     //TODO consider: OpExtend doesn't really have any use... we can use OpNest only
     public void visit(OpExtend opExtend){
         opExtend.getSubOp().visit(this);
+        CURRENT_INDENT += BLOCK_INDENT;
+        opExtend.getAssignments().forEach(a -> a.visit(this));
     }
 
     public void visit(OpNest opNest){
@@ -168,6 +165,11 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
             out.print(expr.getOpName());
             expr.getArg().visit(this);
         }
+        else{
+            out.print(expr.getFunctionName() + "(");
+            expr.getArg().visit(this);
+            out.print(")");
+        }
     }
 
     public void visit(ExprFunction2 expr){
@@ -202,12 +204,27 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
     }
 
     public void visit(Constant expr){
-        if(expr instanceof Const_Bool){
+        if(expr instanceof Const_Null){
+            out.print("null");
+        } else if(expr instanceof Const_Bool){
             out.print(((Const_Bool)expr).getBoolean());
         } else if(expr instanceof Const_String){
             out.print(AqlUtils.quoteString(((Const_String)expr).getString()));
         } else if(expr instanceof Const_Number){
             out.print(((Const_Number)expr).getNumber());
+        } else if(expr instanceof Const_Array){
+            Constant[] arrayValues = ((Const_Array)expr).getArray();
+            out.print("[");
+            for (int i = 0; i < arrayValues.length; i++) {
+                arrayValues[i].visit(this);
+                if(i < arrayValues.length - 1)
+                    out.print(", ");
+            }
+            out.print("]");
+        }else if(expr instanceof Const_Object) {
+            out.print("{");
+            ((Const_Object)expr).getObject().visit(this);
+            out.print("}");
         }
     }
 

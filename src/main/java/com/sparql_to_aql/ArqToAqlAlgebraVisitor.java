@@ -226,8 +226,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             createdAqlOps.add(opToJoin1);
         }
     }
-
-    //TODO fix bugs below
+    
     @Override
     public void visit(OpLeftJoin opLeftJoin){
         Op leftOp = createdAqlOps.removeFirst();
@@ -236,12 +235,13 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opLeftJoin.getLeft().hashCode());
         Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opLeftJoin.getRight().hashCode());
 
-        if(!(leftOp instanceof com.aql.algebra.operators.OpProject) && !(leftOp instanceof OpFor)){
-            //add project over left op + let stmt and then create for loop which we need
-            leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateProjectionVarExprList(leftBoundVars), false);
+        if(!(leftOp instanceof OpFor)) {
+            if(!(leftOp instanceof com.aql.algebra.operators.OpProject)){
+                //add project over left op + let stmt and then create for loop which we need
+                leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateProjectionVarExprList(leftBoundVars), false);
+            }
+            leftOp = AddNewAssignmentAndLoop(leftOp, leftBoundVars);
         }
-
-        leftOp = AddNewAssignmentAndLoop(leftOp, leftBoundVars);
 
         //add filters on the right side results to make sure common variables match to those on the left
         ExprList filtersExprs = RewritingUtils.GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
@@ -270,9 +270,11 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         newOp = new com.aql.algebra.operators.OpProject(newOp, new Expr_Merge(com.aql.algebra.expressions.Var.alloc(outerLoopVarName), com.aql.algebra.expressions.Var.alloc(forLoopVarGenerator.getCurrent())),false);
 
+        Map<String, String> boundVars = MapUtils.MergeMapsKeepFirstDuplicateKeyValue(leftBoundVars, rightBoundVars);
+        newOp = AddNewAssignmentAndLoop(newOp, boundVars);
         createdAqlOps.push(newOp);
         //add bound vars to map
-        SetSparqlVariablesByOp(opLeftJoin.hashCode(), RewritingUtils.UpdateBoundVariablesMapping(MapUtils.MergeMapsKeepFirstDuplicateKeyValue(leftBoundVars, rightBoundVars), null));
+        SetSparqlVariablesByOp(opLeftJoin.hashCode(), boundVars);
     }
 
     //TODO what if instead of an OpMinus op in AQL we use a JOIN with not equals filter conditions??

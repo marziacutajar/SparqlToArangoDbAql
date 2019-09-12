@@ -138,6 +138,9 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         else if(nv.isNumber()){
             aqlExpr = new Const_Number(nv.getDouble());
         }
+        else if(nv.isIRI()) {
+            aqlExpr = new Const_String(nv.asString());
+        }
         else{
             throw new UnsupportedOperationException("Node value in SPARQL expression not supported!");
         }

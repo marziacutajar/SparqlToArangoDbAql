@@ -13,8 +13,6 @@ public interface OpVisitor
     public void visit(OpExtend opExtend);
 
     // Op2
-    //public void visit(OpUnion opUnion);
-    //public void visit(OpMinus opMinus);
     public void visit(OpNest opNest);
 
     // OpN
@@ -24,7 +22,6 @@ public interface OpVisitor
     //public void visit(OpDisjunction opDisjunction);
 
     // OpModifier
-    //public void visit(OpList opList);
     public void visit(OpSort opOrder);
     public void visit(OpProject opProject);
     //public void visit(OpDistinct opDistinct);

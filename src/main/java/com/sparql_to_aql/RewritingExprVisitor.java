@@ -58,20 +58,21 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         //not a priority but possibly support ABS, CEILING, FLOOR, ROUND, STR_LOWER, STR_UPPER, STR_LENGTH
         // remember that for this we'd have to check the VALUE of the arangodb document
         if(func instanceof E_LogicalNot){
-            createdAqlExprs.push(new Expr_LogicalNot(createdAqlExprs.removeLast()));
+            createdAqlExprs.add(new Expr_LogicalNot(createdAqlExprs.removeLast()));
         }
         else if(func instanceof E_Bound) {
-            createdAqlExprs.push(new Expr_NotEquals(createdAqlExprs.removeLast(), new Const_Null()));
+            createdAqlExprs.add(new Expr_NotEquals(createdAqlExprs.removeLast(), new Const_Null()));
         }else{
             throw new UnsupportedOperationException("SPARQL expression not supported!");
         }
     }
 
     //TODO consider improving using enum + switch
+    //TODO important - for mathemtical operators we must compare the value attribute of the object being compared
     @Override
     public void visit(ExprFunction2 func){
-        com.aql.algebra.expressions.Expr param1 = createdAqlExprs.removeLast();
         com.aql.algebra.expressions.Expr param2 = createdAqlExprs.removeLast();
+        com.aql.algebra.expressions.Expr param1 = createdAqlExprs.removeLast();
 
         com.aql.algebra.expressions.Expr aqlExpr;
 
@@ -104,7 +105,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
             throw new UnsupportedOperationException("SPARQL expression not supported!");
         }
 
-        createdAqlExprs.push(aqlExpr);
+        createdAqlExprs.add(aqlExpr);
     }
 
     //encountered in case like (x == y) ? opt1 : opt2
@@ -145,12 +146,12 @@ public class RewritingExprVisitor extends ExprVisitorBase {
             throw new UnsupportedOperationException("Node value in SPARQL expression not supported!");
         }
 
-        createdAqlExprs.push(aqlExpr);
+        createdAqlExprs.add(aqlExpr);
     }
 
     @Override
     public void visit(ExprVar e){
-        createdAqlExprs.push(new com.aql.algebra.expressions.ExprVar(boundVariables.get(e.getVarName())));
+        createdAqlExprs.add(new com.aql.algebra.expressions.ExprVar(boundVariables.get(e.getVarName())));
     }
 
     @Override

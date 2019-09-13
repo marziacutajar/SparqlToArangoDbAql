@@ -226,7 +226,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             createdAqlOps.add(opToJoin1);
         }
     }
-    
+
     @Override
     public void visit(OpLeftJoin opLeftJoin){
         Op leftOp = createdAqlOps.removeFirst();

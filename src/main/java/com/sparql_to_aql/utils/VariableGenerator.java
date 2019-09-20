@@ -12,6 +12,12 @@ public class VariableGenerator {
         this.suffix = suffix;
     }
 
+    public VariableGenerator(String prefix){
+        counter = 0;
+        this.prefix = prefix;
+        this.suffix = "";
+    }
+
     public String getCurrent(){
         return prefix + counter + suffix;
     }

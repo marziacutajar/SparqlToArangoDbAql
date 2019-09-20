@@ -1,14 +1,15 @@
 package com.aql.algebra.operators;
 
 import com.aql.algebra.AqlConstants;
-import com.aql.algebra.OpVisitor;
+import com.aql.algebra.AqlQueryNode;
+import com.aql.algebra.NodeVisitor;
 
 public class OpLimit extends OpModifier
 {
     private long start;
     private long length;
 
-    public OpLimit(Op subOp, long start, long length)
+    public OpLimit(AqlQueryNode subOp, long start, long length)
     {
         super(subOp);
         this.start = start;
@@ -28,10 +29,10 @@ public class OpLimit extends OpModifier
     public String getName()                 { return AqlConstants.keywordLimit; }
 
     @Override
-    public void visit(OpVisitor opVisitor)  { opVisitor.visit(this); }
+    public void visit(NodeVisitor opVisitor)  { opVisitor.visit(this); }
 
     @Override
-    public Op1 copy(Op subOp)                { return new OpLimit(subOp, start, length); }
+    public Op1 copy(AqlQueryNode subOp)                { return new OpLimit(subOp, start, length); }
 
     /*@Override
     public Op apply(Transform transform, Op subOp)

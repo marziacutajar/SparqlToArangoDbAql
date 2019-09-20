@@ -21,12 +21,13 @@ public class ArangoDbClient {
     }
 
     public ArangoCursor<BaseDocument> execQuery(String dbName, String query){
-        //try {
-            return arangoDbConnection.db(dbName).query(query, null, null,
+        try {
+            return arangoDbConnection.db().query(query, null, null,
                     BaseDocument.class);
-        //}
-        //catch (final ArangoDBException e){
-        //    //TODO log exception and throw custom exception or something??
-        //}
+        }
+        catch (final ArangoDBException e){
+            System.out.println(e.getErrorMessage());
+            throw new RuntimeException(e);
+        }
     }
 }

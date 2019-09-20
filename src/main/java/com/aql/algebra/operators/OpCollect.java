@@ -1,8 +1,9 @@
 package com.aql.algebra.operators;
 
 import com.aql.algebra.AqlConstants;
+import com.aql.algebra.AqlQueryNode;
+import com.aql.algebra.NodeVisitor;
 import com.aql.algebra.expressions.ExprAggregator;
-import com.aql.algebra.OpVisitor;
 import com.aql.algebra.expressions.VarExprList;
 
 import java.util.List;
@@ -12,11 +13,11 @@ public class OpCollect extends Op1
     private VarExprList groupVars;
     private List<ExprAggregator> aggregators;
 
-    public static OpCollect create(Op subOp, VarExprList groupVars, List<ExprAggregator> aggregators) {
+    public static OpCollect create(AqlQueryNode subOp, VarExprList groupVars, List<ExprAggregator> aggregators) {
         return new OpCollect(subOp, groupVars, aggregators);
     }
 
-    public OpCollect(Op subOp, VarExprList groupVars, List<ExprAggregator> aggregators)
+    public OpCollect(AqlQueryNode subOp, VarExprList groupVars, List<ExprAggregator> aggregators)
     {
         super(subOp);
         this.groupVars  = groupVars;
@@ -29,10 +30,10 @@ public class OpCollect extends Op1
     public List<ExprAggregator> getAggregators()  { return aggregators; }
 
     @Override
-    public void visit(OpVisitor opVisitor)      { opVisitor.visit(this); }
+    public void visit(NodeVisitor opVisitor)      { opVisitor.visit(this); }
 
     @Override
-    public Op1 copy(Op subOp)                    { return new OpCollect(subOp, groupVars, aggregators); }
+    public Op1 copy(AqlQueryNode child)                    { return new OpCollect(child, groupVars, aggregators); }
 
     /*@Override
     public Op apply(Transform transform, Op subOp)

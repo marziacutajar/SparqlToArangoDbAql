@@ -1,6 +1,9 @@
 package com.aql.algebra.operators;
 
-import com.aql.algebra.OpVisitor;
+import com.aql.algebra.AqlQueryNode;
+import com.aql.algebra.NodeVisitor;
+import com.aql.algebra.resources.AssignedResource;
+import org.apache.jena.sparql.algebra.op.OpAssign;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,15 +14,15 @@ import java.util.List;
 public class OpExtend extends Op1{
 
     //keep a list of assignments instead of one, to reduce nested operations
-    private List<OpAssign> assignments;
+    private List<AssignedResource> assignments;
 
-    public OpExtend(Op sub, OpAssign assignment) {
+    public OpExtend(AqlQueryNode sub, AssignedResource assignment) {
         super(sub);
         this.assignments = new ArrayList<>();
         this.assignments.add(assignment);
     }
 
-    public OpExtend(Op sub, List<OpAssign> assignments) {
+    public OpExtend(AqlQueryNode sub, List<AssignedResource> assignments) {
         super(sub);
         this.assignments = assignments;
     }
@@ -27,16 +30,16 @@ public class OpExtend extends Op1{
     @Override
     public String getName() { return "extend"; }
 
-    public List<OpAssign> getAssignments(){
+    public List<AssignedResource> getAssignments(){
         return assignments;
     }
 
     @Override
-    public void visit(OpVisitor opVisitor) { opVisitor.visit(this); }
+    public void visit(NodeVisitor visitor) { visitor.visit(this); }
 
     @Override
-    public Op1 copy(Op subOp){
-        return new OpExtend(subOp, assignments);
+    public Op1 copy(AqlQueryNode sub){
+        return new OpExtend(sub, assignments);
     }
 
 }

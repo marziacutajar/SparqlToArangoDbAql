@@ -1,10 +1,10 @@
-package com.aql.algebra.operators;
+package com.aql.algebra.resources;
 
-import com.aql.algebra.AqlConstants;
-import com.aql.algebra.OpVisitor;
+import com.aql.algebra.NodeVisitor;
 import com.aql.algebra.expressions.Expr;
+import com.aql.algebra.operators.Op;
 
-public class OpAssign extends Op0{
+public class AssignedResource implements Resource{
     //can assign either an expression or an Op result to a variable
     private String variableName;
     private Expr exprValue;
@@ -13,26 +13,23 @@ public class OpAssign extends Op0{
     boolean assigningOp;
     boolean assigningExpr;
 
-    public OpAssign(String variableName, Expr exprValue){
-        OpAssign(variableName, exprValue, null);
+    public AssignedResource(String variableName, Expr exprValue){
+        AssignedResource(variableName, exprValue, null);
         assigningOp = false;
         assigningExpr = true;
     }
 
-    public OpAssign(String variableName, Op opValue){
-        OpAssign(variableName, null, opValue);
+    public AssignedResource(String variableName, Op opValue){
+        AssignedResource(variableName, null, opValue);
         assigningOp = true;
         assigningExpr = false;
     }
 
-    private void OpAssign(String variableName, Expr exprValue, Op opValue){
+    private void AssignedResource(String variableName, Expr exprValue, Op opValue){
         this.variableName = variableName;
         this.exprValue = exprValue;
         this.opValue = opValue;
     }
-
-    @Override
-    public String getName() { return AqlConstants.keywordLet; }
 
     public String getVariableName() { return variableName; }
 
@@ -45,14 +42,5 @@ public class OpAssign extends Op0{
     public boolean assignsExpr(){ return assigningExpr; }
 
     @Override
-    public Op0 copy(){
-        if(exprValue == null)
-            return new OpAssign(variableName, opValue);
-        else
-            return new OpAssign(variableName, exprValue);
-    }
-
-    @Override
-    public void visit(OpVisitor opVisitor) { opVisitor.visit(this); }
-
+    public void visit(NodeVisitor resVisitor) { resVisitor.visit(this); }
 }

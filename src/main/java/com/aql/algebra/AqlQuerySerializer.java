@@ -4,15 +4,18 @@ import com.aql.algebra.expressions.*;
 import com.aql.algebra.expressions.constants.*;
 import com.aql.algebra.expressions.functions.*;
 import com.aql.algebra.operators.*;
+import com.aql.algebra.resources.AssignedResource;
+import com.aql.algebra.resources.IterationResource;
 import com.sparql_to_aql.utils.AqlUtils;
 import org.apache.commons.lang3.StringUtils;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
+public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
     static final int BLOCK_INDENT = 5;
 
     private int CURRENT_INDENT;
@@ -25,21 +28,27 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
         CURRENT_INDENT = 0;
     }
 
+    public AqlQuerySerializer(StringWriter _out)
+    {
+        out = new PrintWriter(_out);
+        CURRENT_INDENT = 0;
+    }
+
     private void indent(){
         out.print(StringUtils.repeat(" ", CURRENT_INDENT));
     }
 
-    public void visit(OpFor opFor){
+    public void visit(IterationResource forloop){
         boolean useBrackets = false;
         indent();
-        out.print("FOR " + opFor.getIterationVar() + " IN ");
-        Expr dataArrayExpr = opFor.getDataArrayExpr();
+        out.print("FOR " + forloop.getIterationVar().getVarName() + " IN ");
+        Expr dataArrayExpr = forloop.getDataArrayExpr();
         if(!(dataArrayExpr instanceof Var)) {
             useBrackets = true;
             out.print("(");
         }
 
-        opFor.getDataArrayExpr().visit(this);
+        forloop.getDataArrayExpr().visit(this);
         if(useBrackets)
             out.print(")");
 
@@ -47,8 +56,7 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
     }
 
     public void visit(OpFilter op){
-        if(op.getSubOp() != null)
-            op.getSubOp().visit(this);
+        op.getChild().visit(this);
 
         indent();
         out.print("FILTER ");
@@ -62,7 +70,7 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
         out.println();
     }
 
-    public void visit(OpAssign opAssign){
+    public void visit(AssignedResource opAssign){
         indent();
         out.print("LET " + opAssign.getVariableName() + " = ");
 
@@ -90,8 +98,7 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
     }
 
     public void visit(OpSort op){
-        if(op.getSubOp() != null)
-            op.getSubOp().visit(this);
+        op.getChild().visit(this);
 
         indent();
         out.print("SORT ");
@@ -116,8 +123,7 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
     }
 
     public void visit(OpProject op){
-        if(op.getSubOp() != null)
-            op.getSubOp().visit(this);
+        op.getChild().visit(this);
 
         List<Expr> exprs = op.getExprs();
         boolean useBrackets = false;
@@ -142,16 +148,14 @@ public class AqlQuerySerializer implements OpVisitor, ExprVisitor {
     }
 
     public void visit(OpLimit op){
-        if(op.getSubOp() != null)
-            op.getSubOp().visit(this);
+        op.getChild().visit(this);
 
         indent();
         out.println("LIMIT " + (op.getStart() > 0 ? op.getStart() + ", " : "") + op.getLength());
     }
 
     public void visit(OpCollect op){
-        if(op.getSubOp() != null)
-            op.getSubOp().visit(this);
+        op.getChild().visit(this);
 
         indent();
         out.print("COLLECT ");

@@ -1,16 +1,18 @@
 package com.aql.algebra.operators;
 
-public abstract class Op2 implements Op{
-    private Op left ;
-    private Op right ;
+import com.aql.algebra.AqlQueryNode;
 
-    public Op2(Op left, Op right)
+public abstract class Op2 implements Op{
+    private AqlQueryNode left;
+    private AqlQueryNode right;
+
+    public Op2(AqlQueryNode left, AqlQueryNode right)
     {
         this.left = left ; this.right = right ;
     }
 
-    public Op getLeft() { return left ; }
-    public Op getRight() { return right ; }
+    public AqlQueryNode getLeft() { return left ; }
+    public AqlQueryNode getRight() { return right ; }
 
     //public abstract Op apply(Transform transform, Op left, Op right) ;
     public abstract Op2 copy(Op left, Op right) ;

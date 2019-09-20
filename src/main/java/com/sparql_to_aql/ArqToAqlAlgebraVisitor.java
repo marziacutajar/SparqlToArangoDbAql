@@ -190,7 +190,7 @@ public class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         }
 
         if(opToJoin1 instanceof com.aql.algebra.operators.OpProject){
-            opToJoin1 = AddNewAssignmentAndLoop(opToJoin1, boundVariablesInOp1ToJoin);
+            opToJoin1 = AddNewAssignmentAndLoop((Op)opToJoin1, boundVariablesInOp1ToJoin);
         }
 
         if(joinToValuesTable){

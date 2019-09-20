@@ -69,7 +69,6 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     }
 
     //TODO consider improving using enum + switch
-    //TODO important - for mathemtical operators we must compare the value attribute of the object being compared
     @Override
     public void visit(ExprFunction2 func){
         com.aql.algebra.expressions.Expr param2 = createdAqlExprs.removeLast();
@@ -77,7 +76,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
 
         com.aql.algebra.expressions.Expr aqlExpr;
 
-        //if one of the args is a sparql variable but the other isn't, we need to compare the value attribute of the variable
+        //if one of the args is a sparql variable but the other isn't, we need to compare the value attribute of the AQL object the var is bound to
         if(func.getArg1() instanceof ExprVar && !(func.getArg2() instanceof ExprVar))
             param1 = com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(param1.getVarName(), "value"));
         else if (func.getArg2() instanceof ExprVar && !(func.getArg1() instanceof ExprVar))

@@ -1,10 +1,9 @@
 package com.aql.algebra.operators;
 
-import com.aql.algebra.OpVisitor;
+import com.aql.algebra.AqlQueryNode;
 
-public interface Op
+public interface Op extends AqlQueryNode
 {
-    public void visit(OpVisitor opVisitor);
     public String getName();
     //public boolean equalTo(Op other, NodeIsomorphismMap labelMap);
 }

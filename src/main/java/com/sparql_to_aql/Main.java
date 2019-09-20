@@ -1,7 +1,14 @@
 package com.sparql_to_aql;
 
+import com.aql.algebra.AqlConstants;
+import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.AqlQuerySerializer;
+import com.arangodb.ArangoCursor;
+import com.arangodb.ArangoDB;
+import com.arangodb.entity.BaseDocument;
+import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
+import com.sparql_to_aql.constants.RdfObjectTypes;
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpGraphTransformer;
@@ -12,10 +19,14 @@ import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
 import org.apache.jena.sparql.algebra.walker.Walker;
 import org.apache.jena.sparql.sse.SSE;
+
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 
 public class Main {
 
@@ -55,9 +66,9 @@ public class Main {
 
             SSE.write(op);
 
-            //TODO below is used to get query back to SPARQL query form - create something similar for changing AQL query expression tree into string form
-            Query queryForm = OpAsQuery.asQuery(op);
-            System.out.println(queryForm.serialize());
+            //below is used to get query back to SPARQL query form - create something similar for changing AQL query expression tree into string form
+            //Query queryForm = OpAsQuery.asQuery(op);
+            //System.out.println(queryForm.serialize());
 
             System.out.println("initial validation and optimization of algebra");
             //call any optimization transformers on the algebra tree
@@ -77,29 +88,49 @@ public class Main {
             op = Transformer.transform(new OpProjectOverSliceTransformer(), op);
 
             //consider also these existing transformers:
-            //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment
+            //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment, TransformImplicitLeftJoin, TransformFilterPlacement, TransformMergeBGPs
             SSE.write(op);
             ArqToAqlAlgebraVisitor queryExpressionTranslator = new ArqToAqlAlgebraVisitor(query.getGraphURIs(), query.getNamedGraphURIs());
             OpWalker.walk(op, queryExpressionTranslator);
 
-            //Use AQL query serializer to output actual AQL query to console - TODO later actually don't output it to console and send query to database
-            AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(System.out);
+            //Use AQL query serializer to get actual AQL query
+            StringWriter out = new StringWriter();
+            AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(out);
+            //AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(System.out);
 
-            List<com.aql.algebra.operators.Op> aqlQueryExpressionSubParts = queryExpressionTranslator.GetAqlAlgebraQueryExpression();
-            for(com.aql.algebra.operators.Op aqlQueryPart: aqlQueryExpressionSubParts){
+            List<AqlQueryNode> aqlQueryExpressionSubParts = queryExpressionTranslator.GetAqlAlgebraQueryExpression();
+            for(AqlQueryNode aqlQueryPart: aqlQueryExpressionSubParts){
                 //TODO this might be an issue... best to use OpSequence and iterate inside the serializer instead..
                 // or call another method here that tells serializer to just add text to current query with correct indents...
                 aqlQueryPart.visit(aqlQuerySerializer);
                 aqlQuerySerializer.finishVisit();
             }
 
+            String aqlQuery = out.toString();
+            System.out.println(aqlQuery);
+
             //TODO also consider using before and after visitors if we need them... we might
             //TODO possibly use below tutorial for visitor pattern to translate algebra tree
             //https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P
 
             System.out.println("execute generated AQL query on ArangoDb");
-            //TODO refer to https://www.arangodb.com/tutorials/tutorial-sync-java-driver/
-            //new ArangoDbClient().execQuery(ArangoDatabaseSettings.databaseName, aqlQuery_here);
+            ArangoCursor<BaseDocument> results = new ArangoDbClient().execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
+            //results.asListRemaining().forEach(r -> System.out.println(r));
+            while(results.hasNext()){
+                BaseDocument curr = results.next();
+                Map<String, Object> docProperties = curr.getProperties();
+                String type = docProperties.get(ArangoAttributes.TYPE).toString();
+                switch (type){
+                    case RdfObjectTypes.IRI:
+                        //TODO get value and format it as uri
+                        break;
+                    case RdfObjectTypes.LITERAL:
+                        //TODO get value and format it if necessary (quoted if string, just value if otherwise), if it has lang put @lang as well
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("Type not supported");
+                }
+            }
         }
         catch(IOException e){
             System.out.println("File not found.");

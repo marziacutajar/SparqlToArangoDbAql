@@ -1,7 +1,8 @@
 package com.aql.algebra.operators;
 
 import com.aql.algebra.AqlConstants;
-import com.aql.algebra.OpVisitor;
+import com.aql.algebra.AqlQueryNode;
+import com.aql.algebra.NodeVisitor;
 import com.aql.algebra.expressions.Expr;
 
 import java.util.ArrayList;
@@ -13,14 +14,14 @@ public class OpProject extends OpModifier {
 
     private boolean distinct;
 
-    public OpProject(Op subOp, List<Expr> exprs, boolean distinct)
+    public OpProject(AqlQueryNode subOp, List<Expr> exprs, boolean distinct)
     {
         super(subOp);
         this.exprs = exprs;
         this.distinct = distinct;
     }
 
-    public OpProject(Op subOp, Expr expr, boolean distinct)
+    public OpProject(AqlQueryNode subOp, Expr expr, boolean distinct)
     {
         super(subOp);
         this.exprs.add(expr);
@@ -31,10 +32,12 @@ public class OpProject extends OpModifier {
 
     @Override
     public String getName() { return AqlConstants.keywordReturn; }
+
     @Override
-    public void visit(OpVisitor opVisitor)  { opVisitor.visit(this); }
+    public void visit(NodeVisitor opVisitor)  { opVisitor.visit(this); }
+
     @Override
-    public Op1 copy(Op subOp)                { return new OpProject(subOp, exprs, distinct); }
+    public Op1 copy(AqlQueryNode subOp)                { return new OpProject(subOp, exprs, distinct); }
 
     /*@Override
     public Op apply(Transform transform, Op subOp)

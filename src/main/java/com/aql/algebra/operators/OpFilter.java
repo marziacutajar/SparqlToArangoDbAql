@@ -1,9 +1,10 @@
 package com.aql.algebra.operators;
 
 import com.aql.algebra.AqlConstants;
+import com.aql.algebra.AqlQueryNode;
+import com.aql.algebra.NodeVisitor;
 import com.aql.algebra.expressions.Expr;
 import com.aql.algebra.expressions.ExprList;
-import com.aql.algebra.OpVisitor;
 
 public class OpFilter extends Op1
 {
@@ -65,27 +66,14 @@ public class OpFilter extends Op1
         return f;
     }
 
-    public OpFilter(Op sub) {
+    public OpFilter(AqlQueryNode sub) {
         super(sub);
         expressions = new ExprList();
     }
 
-    public OpFilter(ExprList exprs, Op sub) {
+    public OpFilter(ExprList exprs, AqlQueryNode sub) {
         super(sub);
         expressions = exprs;
-    }
-
-    /** Compress multiple filters: (filter (filter (filter op)))) into one (filter op) */
-    public static OpFilter tidy(OpFilter base) {
-        ExprList exprs = new ExprList();
-
-        Op op = base;
-        while (op instanceof OpFilter) {
-            OpFilter f = (OpFilter)op;
-            exprs.addAll(f.getExprs());
-            op = f.getSubOp();
-        }
-        return new OpFilter(exprs, op);
     }
 
     public ExprList getExprs() { return expressions; }
@@ -98,8 +86,8 @@ public class OpFilter extends Op1
     { return transform.transform(this, subOp); }*/
 
     @Override
-    public void visit(OpVisitor opVisitor) { opVisitor.visit(this); }
+    public void visit(NodeVisitor opVisitor) { opVisitor.visit(this); }
 
     @Override
-    public Op1 copy(Op subOp)                { return new OpFilter(expressions, subOp); }
+    public Op1 copy(AqlQueryNode subOp)                { return new OpFilter(expressions, subOp); }
 }

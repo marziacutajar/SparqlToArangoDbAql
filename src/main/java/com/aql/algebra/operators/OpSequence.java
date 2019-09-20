@@ -1,6 +1,6 @@
 package com.aql.algebra.operators;
 
-import com.aql.algebra.OpVisitor;
+import com.aql.algebra.NodeVisitor;
 
 import java.util.List;
 
@@ -15,7 +15,7 @@ public class OpSequence extends OpN {
     }
 
     @Override
-    public void visit(OpVisitor opVisitor) { opVisitor.visit(this); }
+    public void visit(NodeVisitor opVisitor) { opVisitor.visit(this); }
 
     @Override
     public String getName() { return "seq"; }

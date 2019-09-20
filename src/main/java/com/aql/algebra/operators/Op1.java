@@ -1,16 +1,18 @@
 package com.aql.algebra.operators;
 
-public abstract class Op1 implements Op {
-    private Op sub;
+import com.aql.algebra.AqlQueryNode;
 
-    public Op1(Op subOp)
+public abstract class Op1 implements Op {
+    private AqlQueryNode child;
+
+    public Op1(AqlQueryNode child)
     {
-        this.sub = subOp;
+        this.child = child;
     }
 
-    public Op getSubOp() { return sub; }
+    public AqlQueryNode getChild() { return child; }
     //public void setSubOp(Op op) { sub = op; }
 
     //public abstract Op apply(Transform transform, Op subOp);
-    public abstract Op1 copy(Op subOp);
+    public abstract Op1 copy(AqlQueryNode child);
 }

@@ -10,6 +10,7 @@ public interface NodeVisitor
     // Op2
     void visit(OpFilter opFilter);
     void visit(OpNest opNest);
+    void visit(OpExtend opExtend);
 
     // OpN
     //TODO consider using OpSequence to store a sequence of statements that are on the same level (sequence of stmts in the main scope, or sequence of stmts in a for loop)
@@ -25,6 +26,6 @@ public interface NodeVisitor
 
     //Resource
     void visit(IterationResource forloop);
-    //void visit(GraphIterationResource graph_forloop);
+    void visit(GraphIterationResource graph_forloop);
     void visit(AssignedResource assignment);
 }

@@ -5,6 +5,7 @@ import com.aql.algebra.expressions.constants.*;
 import com.aql.algebra.expressions.functions.*;
 import com.aql.algebra.operators.*;
 import com.aql.algebra.resources.AssignedResource;
+import com.aql.algebra.resources.GraphIterationResource;
 import com.aql.algebra.resources.IterationResource;
 import com.sparql_to_aql.utils.AqlUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -55,6 +56,37 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
         out.println();
     }
 
+    public void visit(GraphIterationResource graphForloop){
+        indent();
+        out.print("FOR " + graphForloop.getVertexVar());
+
+        if(graphForloop.getEdgeVar() != null){
+            out.print(", " + graphForloop.getEdgeVar());
+
+            if(graphForloop.getPathVar() != null)
+                out.print(", " + graphForloop.getPathVar());
+        }
+
+        out.print(" IN ");
+
+        if(graphForloop.getMin() != null){
+            out.print(graphForloop.getMin());
+            if(graphForloop.getMax() != null)
+                out.print(".." + graphForloop.getMax());
+        }
+
+        out.print(" " + graphForloop.getDirectionAsString() + " " + graphForloop.getStartVertex() + " ");
+
+        if(graphForloop.getGraph()!= null){
+            out.print(" GRAPH " + graphForloop.getGraph());
+        }
+        else{
+            out.print(String.join(", ", graphForloop.getEdgeCollections()));
+        }
+
+        out.println();
+    }
+
     public void visit(OpFilter op){
         op.getChild().visit(this);
 
@@ -86,7 +118,7 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
 
     //TODO consider: OpExtend doesn't really have any use... we can use OpNest only
     public void visit(OpExtend opExtend){
-        opExtend.getSubOp().visit(this);
+        opExtend.getChild().visit(this);
         CURRENT_INDENT += BLOCK_INDENT;
         opExtend.getAssignments().forEach(a -> a.visit(this));
     }

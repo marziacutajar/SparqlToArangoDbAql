@@ -30,6 +30,11 @@ import java.util.Map;
 
 public class Main {
 
+    public enum ARANGODATAMODEL
+    {
+        D, G
+    }
+
     public static void main(String[] args) {
         // create the parser
         CommandLineParser parser = new DefaultParser();
@@ -37,6 +42,7 @@ public class Main {
         // create the Options
         Options options = new Options();
         options.addOption(Option.builder("f").longOpt("file").hasArg().desc("Path to file containing SPARQL query").argName("file").required().build());
+        options.addOption(Option.builder("m").longOpt("data_model").hasArg().desc("ArangoDB data model being queried; Value must be either 'D' if the document model transformation was used, or 'G' if the graph model transformation was used").argName("data model").required().build());
 
         //initialise ARQ before making any calls to Jena, otherwise running jar file throws exception
         ARQ.init();
@@ -50,14 +56,10 @@ public class Main {
             String filePath = line.getOptionValue("f");
             String sparqlQuery = new String(Files.readAllBytes(Paths.get(filePath)));
 
+            ARANGODATAMODEL data_model = ARANGODATAMODEL.valueOf(line.getOptionValue("m"));
+
             //TODO below QueryFactory.create part is very slow unless it's warmed up! make sure to think about this when measuring performance time
             Query query = QueryFactory.create(sparqlQuery);
-
-            System.out.println("getting graphs");
-
-            //testing how to get FROM and FROM NAMED uris
-            //query.getNamedGraphURIs().forEach(f-> System.out.println(f)); //get all FROM NAMED uris
-            //query.getGraphURIs().forEach(f-> System.out.println(f)); //get all FROM uris (forming default graph)
 
             System.out.println("generating algebra");
             Op op = Algebra.compile(query);
@@ -90,7 +92,23 @@ public class Main {
             //consider also these existing transformers:
             //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment, TransformImplicitLeftJoin, TransformFilterPlacement, TransformMergeBGPs
             SSE.write(op);
-            ArqToAqlAlgebraVisitor queryExpressionTranslator = new ArqToAqlAlgebraVisitor(query.getGraphURIs(), query.getNamedGraphURIs());
+
+            //get FROM and FROM NAMED uris
+            List<String> namedGraphs = query.getNamedGraphURIs(); //get all FROM NAMED uris
+            List<String> defaultGraphUris = query.getGraphURIs(); //get all FROM uris (forming default graph)
+
+            ArqToAqlAlgebraVisitor queryExpressionTranslator;
+
+            switch (data_model){
+                case D:
+                    queryExpressionTranslator = new ArqToAqlAlgebraVisitor_DocVersion(defaultGraphUris, namedGraphs);
+                    break;
+                case G:
+                    queryExpressionTranslator = new ArqToAqlAlgebraVisitor_GraphVersion(defaultGraphUris, namedGraphs);
+                    break;
+                default: throw new RuntimeException("Unsupported ArangoDB data model");
+            }
+
             OpWalker.walk(op, queryExpressionTranslator);
 
             //Use AQL query serializer to get actual AQL query

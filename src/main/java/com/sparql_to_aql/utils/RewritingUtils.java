@@ -25,8 +25,6 @@ public class RewritingUtils {
     public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, String> boundVars){
         String attributeName;
 
-        Set<String> usedSparqlVars = boundVars.keySet();
-
         switch(role){
             case SUBJECT:
                 attributeName = ArangoAttributes.SUBJECT;
@@ -41,10 +39,16 @@ public class RewritingUtils {
                 throw new UnsupportedOperationException();
         }
 
-        //We can have a mixture of LET and FILTER statements after each other - refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
-        //IMP: in ARQ query expression, blank nodes are represented as variables ??0, ??1 etc.. and an Invalid SPARQL query error is given if same blank node is used in more than one subquery
         String currAqlVarName = AqlUtils.buildVar(forLoopVarName, attributeName);
 
+        ProcessTripleNode(node, currAqlVarName, filterConditions, boundVars);
+    }
+
+    public static void ProcessTripleNode(Node node, String currAqlVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, String> boundVars){
+        Set<String> usedSparqlVars = boundVars.keySet();
+
+        //We can have a mixture of LET and FILTER statements after each other - refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
+        //IMP: in ARQ query expression, blank nodes are represented as variables ??0, ??1 etc.. and an Invalid SPARQL query error is given if same blank node is used in more than one subquery
         if(node.isVariable()) {
             String var_name = node.getName();
             if(usedSparqlVars.contains(var_name)){

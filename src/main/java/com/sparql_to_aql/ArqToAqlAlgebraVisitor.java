@@ -146,6 +146,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpJoin opJoin){
+        //TODO probably a bug here.. we're getting first from createdAqlNodes but if it contains more than 2 nodes this is wrong.. I think changing to removeLast would be enough
         AqlQueryNode opToJoin1 = createdAqlNodes.removeFirst();
         //whether we use LET stsms or not here depends if the ops being joined include a projection or not
         boolean joinToValuesTable = false;
@@ -223,18 +224,23 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpLeftJoin opLeftJoin){
-        AqlQueryNode leftOp = createdAqlNodes.removeFirst();
-        AqlQueryNode rightOp = createdAqlNodes.removeFirst();
+        AqlQueryNode rightOp = createdAqlNodes.removeLast();
+        AqlQueryNode leftOp = createdAqlNodes.removeLast();
 
         Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opLeftJoin.getLeft().hashCode());
         Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opLeftJoin.getRight().hashCode());
 
+        String outerLoopVarName;
         if(!(leftOp instanceof IterationResource)) {
             if(!(leftOp instanceof com.aql.algebra.operators.OpProject)){
                 //add project over left op + let stmt and then create for loop which we need
                 leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateProjectionVarExprList(leftBoundVars), false);
             }
             leftOp = AddNewAssignmentAndLoop((Op)leftOp, leftBoundVars);
+            outerLoopVarName = forLoopVarGenerator.getCurrent();
+        }
+        else{
+            outerLoopVarName = ((IterationResource) leftOp).getIterationVar().getVarName();
         }
 
         //add filters on the right side results to make sure common variables match to those on the left
@@ -262,7 +268,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         AssignedResource innerAssignment = new AssignedResource(assignmentVarGenerator.getNew(), (Op)rightOp);
 
         AqlQueryNode newOp = new com.aql.algebra.operators.OpNest(leftOp, innerAssignment);
-        String outerLoopVarName = forLoopVarGenerator.getCurrent();
 
         AqlQueryNode subquery = new IterationResource(forLoopVarGenerator.getNew(), new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(com.aql.algebra.expressions.Var.alloc(assignmentVarGenerator.getCurrent())), new Const_Number(0)), com.aql.algebra.expressions.Var.alloc(assignmentVarGenerator.getCurrent()), new Const_Array(new Const_Object())));
         newOp = new OpNest(newOp, subquery);
@@ -271,7 +276,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         Map<String, String> boundVars = MapUtils.MergeMapsKeepFirstDuplicateKeyValue(leftBoundVars, rightBoundVars);
         newOp = AddNewAssignmentAndLoop((Op)newOp, boundVars);
-        createdAqlNodes.push(newOp);
+        createdAqlNodes.add(newOp);
         //add bound vars to map
         SetSparqlVariablesByOp(opLeftJoin.hashCode(), boundVars);
     }
@@ -301,7 +306,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         Map<String, String> allBoundVars = MapUtils.MergeMapsKeepFirstDuplicateKeyValue(leftBoundVars, rightBoundVars);
         //TODO consider using APPEND operator instead of UNION in AQL to keep any sorting order applied before
         //System.out.print("LET unionResult = UNION(left_result_here, right_result_here)");
-        createdAqlNodes.push(AddNewAssignmentAndLoop(new Expr_Union(com.aql.algebra.expressions.Var.alloc(leftAssignVar), com.aql.algebra.expressions.Var.alloc(rightAssignVar)), allBoundVars));
+        createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(com.aql.algebra.expressions.Var.alloc(leftAssignVar), com.aql.algebra.expressions.Var.alloc(rightAssignVar)), allBoundVars));
         AddSparqlVariablesByOp(opUnion.hashCode(), allBoundVars);
     }
 

@@ -239,7 +239,13 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         //add filters on the right side results to make sure common variables match to those on the left
         ExprList filtersExprs = RewritingUtils.GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
-        //opLeftJoin.getExprs();
+
+        //if left join contains exprs, apply filter exprs on optional part
+        if(opLeftJoin.getExprs() != null) {
+            for (Iterator<Expr> i = opLeftJoin.getExprs().iterator(); i.hasNext(); ) {
+                filtersExprs.add(RewritingUtils.ProcessExpr(i.next(), rightBoundVars));
+            }
+        }
 
         if(!(rightOp instanceof com.aql.algebra.operators.OpProject)){
             if(filtersExprs.size() > 0)

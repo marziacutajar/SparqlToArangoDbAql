@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -136,17 +138,28 @@ public class Main {
             //results.asListRemaining().forEach(r -> System.out.println(r));
             while(results.hasNext()){
                 BaseDocument curr = results.next();
-                Map<String, Object> docProperties = curr.getProperties();
-                String type = docProperties.get(ArangoAttributes.TYPE).toString();
-                switch (type){
-                    case RdfObjectTypes.IRI:
-                        //TODO get value and format it as uri
-                        break;
-                    case RdfObjectTypes.LITERAL:
-                        //TODO get value and format it if necessary (quoted if string, just value if otherwise), if it has lang put @lang as well
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("Type not supported");
+                Map<String, Object> rowColumns = curr.getProperties();
+                Iterator<Map.Entry<String, Object>> it = rowColumns.entrySet().iterator();
+                while (it.hasNext()) {
+                    Map.Entry<String, Object> pair = it.next();
+
+                    if(pair.getValue() instanceof HashMap){
+                        Map<String, Object> values = ((HashMap) pair.getValue());
+                        String type = values.get(ArangoAttributes.TYPE).toString();
+                        switch (type){
+                            case RdfObjectTypes.IRI:
+                                //TODO get value and format it as uri
+                                break;
+                            case RdfObjectTypes.LITERAL:
+                                //TODO get value and format it if necessary (quoted if string, just value if otherwise), if it has lang put @lang as well
+                                break;
+                            default:
+                                throw new UnsupportedOperationException("Type not supported");
+                        }
+                    }
+                    else{
+                        //TODO just output value as is?
+                    }
                 }
             }
         }
@@ -159,5 +172,7 @@ public class Main {
         catch(ParseException exp) {
             System.err.println( "Parsing failed.  Reason: " + exp.getMessage() );
         }
+
+        System.exit(0);
     }
 }

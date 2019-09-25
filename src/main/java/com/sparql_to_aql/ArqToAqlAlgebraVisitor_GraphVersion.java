@@ -44,20 +44,21 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
 
         for(Triple triple : opBgp.getPattern().getList()){
             ExprList subjectFilterConditions = new ExprList();
-            String iterationVertexVar = graphForLoopVertexVarGenerator.getNew();
-            String iterationEdgeVar = graphForLoopEdgeVarGenerator.getNew();
-            String iterationPathVar = graphForLoopPathVarGenerator.getNew();
-
             Node subject = triple.getSubject();
             String startVertex;
             //if the subject of the triple isn't bound already - we need an extra for loop
             if(subject.isURI() || (subject.isVariable() && !usedVars.containsKey(subject.getName()))){
                 String forloopVar = forLoopVarGenerator.getNew();
-                currAqlNode = new IterationResource(forloopVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.GraphModel.rdfResourcesCollectionName));
+                AqlQueryNode new_forloop = new IterationResource(forloopVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.GraphModel.rdfResourcesCollectionName));
                 RewritingUtils.ProcessTripleNode(triple.getSubject(), forloopVar, subjectFilterConditions, usedVars);
                 if(subjectFilterConditions.size() > 0){
-                    currAqlNode = new com.aql.algebra.operators.OpFilter(subjectFilterConditions, currAqlNode);
+                    new_forloop = new com.aql.algebra.operators.OpFilter(subjectFilterConditions, new_forloop);
                 }
+
+                if(currAqlNode == null)
+                    currAqlNode = new_forloop;
+                else
+                    currAqlNode = new OpNest(currAqlNode, new_forloop);
 
                 startVertex = forloopVar;
             }
@@ -67,6 +68,9 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
 
             //keep list of FILTER clauses per triple
             ExprList filterConditions = new ExprList();
+            String iterationVertexVar = graphForLoopVertexVarGenerator.getNew();
+            String iterationEdgeVar = graphForLoopEdgeVarGenerator.getNew();
+            String iterationPathVar = graphForLoopPathVarGenerator.getNew();
 
             //if this is the first for loop and there are named graphs specified, add filters for those named graphs
             //outerGraphVarToMatch = AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);

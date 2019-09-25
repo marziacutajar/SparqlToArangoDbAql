@@ -53,7 +53,7 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
             //if the subject of the triple isn't bound already - we need an extra for loop
             if(subject.isURI() || (subject.isVariable() && !usedVars.containsKey(subject.getName()))){
                 String forloopVar = forLoopVarGenerator.getNew();
-                currAqlNode = new IterationResource(forloopVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.GraphModel.rdfCollectionName));
+                currAqlNode = new IterationResource(forloopVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.GraphModel.rdfResourcesCollectionName));
                 RewritingUtils.ProcessTripleNode(triple.getSubject(), forloopVar, subjectFilterConditions, usedVars);
                 if(subjectFilterConditions.size() > 0){
                     currAqlNode = new com.aql.algebra.operators.OpFilter(subjectFilterConditions, currAqlNode);
@@ -95,7 +95,7 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
             AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, GraphIterationResource.TraversalDirection.OUTBOUND, List.of(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
 
             RewritingUtils.ProcessTripleNode(triple.getPredicate(), AqlUtils.buildVar(iterationEdgeVar, ArangoAttributes.PREDICATE), filterConditions, usedVars);
-            RewritingUtils.ProcessTripleNode(triple.getObject(), AqlUtils.buildVar(iterationPathVar, "VERTICES[1]"), filterConditions, usedVars);
+            RewritingUtils.ProcessTripleNode(triple.getObject(), AqlUtils.buildVar(iterationPathVar, "vertices[1]"), filterConditions, usedVars);
 
             Op filterOp = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);
 

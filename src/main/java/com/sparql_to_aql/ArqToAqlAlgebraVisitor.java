@@ -1,6 +1,7 @@
 package com.sparql_to_aql;
 
 import com.aql.algebra.AqlQueryNode;
+import com.aql.algebra.expressions.ExprVar;
 import com.aql.algebra.expressions.constants.Const_Object;
 import com.aql.algebra.operators.*;
 import com.aql.algebra.resources.AssignedResource;
@@ -73,8 +74,22 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         if(opSlice.getStart() < 0)
             start = 0;
 
-        createdAqlNodes.add(new OpLimit(currOp, start, opSlice.getLength()));
-        SetSparqlVariablesByOp(opSlice.hashCode(), GetSparqlVariablesByOp(opSlice.getSubOp().hashCode()));
+        boolean projectAfterSlice = false;
+        Map<String, String> boundVars = GetSparqlVariablesByOp(opSlice.getSubOp().hashCode());
+
+        //check if currOp is project, if so add for loop with sort + project
+        if(currOp instanceof com.aql.algebra.operators.OpProject) {
+            currOp = AddNewAssignmentAndLoop((Op) currOp, boundVars);
+            projectAfterSlice = true;
+        }
+
+        Op limitOp = new OpLimit(currOp, start, opSlice.getLength());
+
+        if(projectAfterSlice)
+            limitOp = new com.aql.algebra.operators.OpProject(limitOp, new ExprVar(forLoopVarGenerator.getCurrent()), false);
+
+        createdAqlNodes.add(limitOp);
+        SetSparqlVariablesByOp(opSlice.hashCode(), boundVars);
     }
 
     @Override
@@ -122,15 +137,16 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         }
 
         if(opProject instanceof OpDistinctProject){
-            if(projectableVars.size() == 1){
-                useDistinct = true;
+            useDistinct = true;
+            /*if(projectableVars.size() == 1){
+
             }
             else{
                 //SELECT DISTINCT WITH >1 VAR = COLLECT in AQL... consider mentioning this in thesis writeup in AQL algebra
 
                 //apply collect stmt over current projectionSubOp
                 currOp = new OpCollect(currOp, RewritingUtils.CreateCollectVarExprList(projectableVars, boundVars), null);
-            }
+            }*/
         }
 
         com.aql.algebra.expressions.VarExprList returnVariables = RewritingUtils.CreateProjectionVarExprList(projectableVars, boundVars);

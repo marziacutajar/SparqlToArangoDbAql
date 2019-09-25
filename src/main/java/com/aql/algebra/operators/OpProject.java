@@ -30,6 +30,8 @@ public class OpProject extends OpModifier {
 
     public List<Expr> getExprs() { return exprs; }
 
+    public boolean isDistinct() { return distinct; }
+
     @Override
     public String getName() { return AqlConstants.keywordReturn; }
 

@@ -17,6 +17,7 @@ import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
 import org.apache.commons.cli.*;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
+import org.apache.jena.sparql.algebra.optimize.TransformFilterPlacement;
 import org.apache.jena.sparql.algebra.walker.Walker;
 import org.apache.jena.sparql.sse.SSE;
 
@@ -80,6 +81,8 @@ public class Main {
             //TODO TransformPattern2Join is useful if we want to process all triples seperately instead of as BGPs
             // however not having triples in the same bgp nested in the same subquery will make it slower..I think..
             //op = Transformer.transform(new TransformPattern2Join(), op);
+
+            //transformer to merge project and distinct operators into one
             op = Transformer.transform(new OpDistinctTransformer(), op);
 
             //transformer to use if we're gonna remove REDUCED from a query and just do a normal project
@@ -88,9 +91,11 @@ public class Main {
             //transformer to use to combine graph and its nested bgp into one operator
             op = Transformer.transform(new OpGraphTransformer(), op);
 
-            //transformer to use to nest slice op in project op instead of vice versa
+            //transformer to use to nest slice op in project op instead of vice versa - IMPORTANT this must be applied before OpDistinctTransformer
             op = Transformer.transform(new OpProjectOverSliceTransformer(), op);
 
+            //TODO consider using below but would have to add support for OpSequence
+            //op = Transformer.transform(new TransformFilterPlacement(), op);
             //consider also these existing transformers:
             //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment, TransformImplicitLeftJoin, TransformFilterPlacement, TransformMergeBGPs
             SSE.write(op);

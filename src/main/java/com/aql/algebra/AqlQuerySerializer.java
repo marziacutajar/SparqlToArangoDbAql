@@ -165,6 +165,9 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
         indent();
         out.print("RETURN ");
 
+        if(op.isDistinct())
+            out.print("DISTINCT ");
+
         if(useBrackets)
             out.print("{");
 
@@ -189,6 +192,7 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
     public void visit(OpCollect op){
         op.getChild().visit(this);
 
+        //TODO
         indent();
         out.print("COLLECT ");
         op.getGroupVars();

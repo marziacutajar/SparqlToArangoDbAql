@@ -116,7 +116,12 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
                     direction = com.aql.algebra.SortCondition.Direction.DEFAULT;
             }
 
-            aqlSortConds.add(new com.aql.algebra.SortCondition(RewritingUtils.ProcessExpr(currCond.getExpression(), boundVars), direction));
+            com.aql.algebra.expressions.Expr aqlSortExpr = RewritingUtils.ProcessExpr(currCond.getExpression(), boundVars);
+            //add .value over sort variable if it is a bound var, since we want the actual value to be sorted (_id, _key, _rev, type will otherwise change the sort order)
+            if(aqlSortExpr instanceof com.aql.algebra.expressions.ExprVar && boundVars.values().contains(aqlSortExpr.getVarName()))
+                aqlSortExpr = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(aqlSortExpr.getVarName(), ArangoAttributes.VALUE));
+
+            aqlSortConds.add(new com.aql.algebra.SortCondition(aqlSortExpr, direction));
         }
 
         OpSort aqlSort = new OpSort(orderSubOp, aqlSortConds);

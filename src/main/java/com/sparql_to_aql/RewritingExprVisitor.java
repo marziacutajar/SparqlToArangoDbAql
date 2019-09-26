@@ -5,6 +5,7 @@ import com.aql.algebra.expressions.constants.Const_Null;
 import com.aql.algebra.expressions.constants.Const_Number;
 import com.aql.algebra.expressions.constants.Const_String;
 import com.aql.algebra.expressions.functions.*;
+import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.utils.AqlUtils;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.expr.*;
@@ -78,9 +79,9 @@ public class RewritingExprVisitor extends ExprVisitorBase {
 
         //if one of the args is a sparql variable but the other isn't, we need to compare the value attribute of the AQL object the var is bound to
         if(func.getArg1() instanceof ExprVar && !(func.getArg2() instanceof ExprVar))
-            param1 = com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(param1.getVarName(), "value"));
+            param1 = com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE));
         else if (func.getArg2() instanceof ExprVar && !(func.getArg1() instanceof ExprVar))
-            param2 = com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(param2.getVarName(), "value"));
+            param2 = com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE));
 
         if(func instanceof E_Add){
             aqlExpr = new Expr_Add(param1, param2);

@@ -9,6 +9,7 @@ import com.sparql_to_aql.RewritingExprVisitor;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.constants.RdfObjectTypes;
+import com.sparql_to_aql.constants.TransformationModel;
 import com.sparql_to_aql.constants.arangodb.AqlOperators;
 import org.apache.jena.datatypes.RDFDatatype;
 import org.apache.jena.datatypes.xsd.impl.RDFLangString;
@@ -41,10 +42,10 @@ public class RewritingUtils {
 
         String currAqlVarName = AqlUtils.buildVar(forLoopVarName, attributeName);
 
-        ProcessTripleNode(node, currAqlVarName, filterConditions, boundVars);
+        ProcessTripleNode(node, currAqlVarName, filterConditions, boundVars, role.equals(NodeRole.PREDICATE));
     }
 
-    public static void ProcessTripleNode(Node node, String currAqlVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, String> boundVars){
+    public static void ProcessTripleNode(Node node, String currAqlVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, String> boundVars, boolean isPredicate){
         Set<String> usedSparqlVars = boundVars.keySet();
 
         //We can have a mixture of LET and FILTER statements after each other - refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
@@ -61,7 +62,9 @@ public class RewritingUtils {
             }
         }
         else if(node.isURI()){
-            filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));
+            if(!isPredicate)
+                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));
+
             filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new Const_String(node.getURI())));
         }
         else if(node.isLiteral()){

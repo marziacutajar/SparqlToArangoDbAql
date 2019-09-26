@@ -50,7 +50,7 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
             if(subject.isURI() || (subject.isVariable() && !usedVars.containsKey(subject.getName()))){
                 String forloopVar = forLoopVarGenerator.getNew();
                 AqlQueryNode new_forloop = new IterationResource(forloopVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.GraphModel.rdfResourcesCollectionName));
-                RewritingUtils.ProcessTripleNode(triple.getSubject(), forloopVar, subjectFilterConditions, usedVars);
+                RewritingUtils.ProcessTripleNode(triple.getSubject(), forloopVar, subjectFilterConditions, usedVars, false);
                 if(subjectFilterConditions.size() > 0){
                     new_forloop = new com.aql.algebra.operators.OpFilter(subjectFilterConditions, new_forloop);
                 }
@@ -98,8 +98,8 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
 
             AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, GraphIterationResource.TraversalDirection.OUTBOUND, List.of(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
 
-            RewritingUtils.ProcessTripleNode(triple.getPredicate(), AqlUtils.buildVar(iterationEdgeVar, ArangoAttributes.PREDICATE), filterConditions, usedVars);
-            RewritingUtils.ProcessTripleNode(triple.getObject(), AqlUtils.buildVar(iterationPathVar, "vertices[1]"), filterConditions, usedVars);
+            RewritingUtils.ProcessTripleNode(triple.getPredicate(), AqlUtils.buildVar(iterationPathVar, "edges[0]", ArangoAttributes.PREDICATE), filterConditions, usedVars, true);
+            RewritingUtils.ProcessTripleNode(triple.getObject(), AqlUtils.buildVar(iterationPathVar, "vertices[1]"), filterConditions, usedVars, false);
 
             Op filterOp = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);
 

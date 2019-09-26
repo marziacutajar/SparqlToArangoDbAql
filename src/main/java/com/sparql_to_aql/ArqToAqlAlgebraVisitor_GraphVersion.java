@@ -16,6 +16,7 @@ import org.apache.jena.sparql.algebra.op.*;
 
 import java.util.*;
 
+//TODO for this model, consider storing label and rdftype in the uri itself
 public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor {
 
     public ArqToAqlAlgebraVisitor_GraphVersion(List<String> defaultGraphNames, List<String> namedGraphs){
@@ -25,6 +26,7 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
         this._aqlAlgebraQueryExpressionTree = new ArrayList<>();
     }
 
+    //TODO consider using prune instead of certain filters on graph traversals..however I'm not sure if it's usable in 1..1 traversals
     @Override
     public void visit(OpBGP opBgp){
         boolean bgpWithGraphNode = false;
@@ -101,13 +103,14 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
             RewritingUtils.ProcessTripleNode(triple.getPredicate(), AqlUtils.buildVar(iterationPathVar, "edges[0]", ArangoAttributes.PREDICATE), filterConditions, usedVars, true);
             RewritingUtils.ProcessTripleNode(triple.getObject(), AqlUtils.buildVar(iterationPathVar, "vertices[1]"), filterConditions, usedVars, false);
 
-            Op filterOp = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);
+            if(filterConditions.size() > 0)
+                aqlNode = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);
 
             if(currAqlNode == null) {
-                currAqlNode = filterOp;
+                currAqlNode = aqlNode;
             }
             else {
-                currAqlNode = new OpNest(currAqlNode, filterOp);
+                currAqlNode = new OpNest(currAqlNode, aqlNode);
             }
 
             firstTripleBeingProcessed = false;

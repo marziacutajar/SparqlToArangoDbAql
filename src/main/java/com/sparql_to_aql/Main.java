@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -139,8 +141,12 @@ public class Main {
             //https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P
 
             System.out.println("execute generated AQL query on ArangoDb");
+            Instant start = Instant.now();
             ArangoCursor<BaseDocument> results = new ArangoDbClient().execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
-            //results.asListRemaining().forEach(r -> System.out.println(r));
+            Instant finish = Instant.now();
+            //measure elapsed time TODO output it to file
+            long timeElapsed = Duration.between(start, finish).toMillis();
+
             while(results.hasNext()){
                 BaseDocument curr = results.next();
                 Map<String, Object> rowColumns = curr.getProperties();

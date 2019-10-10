@@ -251,18 +251,8 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opLeftJoin.getLeft().hashCode());
         Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opLeftJoin.getRight().hashCode());
 
-        String outerLoopVarName;
-        if(!(leftOp instanceof IterationResource)) {
-            if(!(leftOp instanceof com.aql.algebra.operators.OpProject)){
-                //add project over left op + let stmt and then create for loop which we need
-                leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateProjectionVarExprList(leftBoundVars), false);
-            }
-            leftOp = AddNewAssignmentAndLoop((Op)leftOp, leftBoundVars);
-            outerLoopVarName = forLoopVarGenerator.getCurrent();
-        }
-        else{
-            outerLoopVarName = ((IterationResource) leftOp).getIterationVar().getVarName();
-        }
+        leftOp = EnsureIterationResource(leftOp, leftBoundVars);
+        String outerLoopVarName = ((IterationResource) leftOp).getIterationVar().getVarName();
 
         //add filters on the right side results to make sure common variables match to those on the left
         ExprList filtersExprs = RewritingUtils.GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
@@ -329,6 +319,51 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //System.out.print("LET unionResult = UNION(left_result_here, right_result_here)");
         createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(com.aql.algebra.expressions.Var.alloc(leftAssignVar), com.aql.algebra.expressions.Var.alloc(rightAssignVar)), allBoundVars));
         AddSparqlVariablesByOp(opUnion.hashCode(), allBoundVars);
+    }
+
+    @Override
+    public void visit(OpMinus opMinus){
+        //add nested forloops for op with filters so we only keep solutions from leftOp that aren't compatible
+        // with rightOp, use project distinct to return leftop results from for loop? not sure if this will work
+        // actually this might be wrong and we only need one for loop with a filter and then use a for loop within the filter to find all solution mappings in rightOp that are compatible solution mappings from leftOp
+        // and we only keep mappings from leftOp were the count() of  items returned by that inner for loop is 0!!!
+        // Let s = FOR doc IN triples
+        //         FILTER (doc.v1 = leftOp.v1) AND (doc.v2 = leftOp.v2)
+        //         COLLECT WITH COUNT INTO length
+        //         RETURN length
+        // And then FOR x in leftOp
+        // FILTER s == 0
+        AqlQueryNode rightOp = createdAqlNodes.removeLast();
+        AqlQueryNode leftOp = createdAqlNodes.removeLast();
+
+        Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opMinus.getLeft().hashCode());
+        Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opMinus.getRight().hashCode());
+
+        Set<String> commonVars = MapUtils.GetCommonMapKeys(leftBoundVars, rightBoundVars);
+
+        if(commonVars.size() == 0){
+            createdAqlNodes.add(leftOp);
+            AddSparqlVariablesByOp(opMinus.hashCode(), leftBoundVars);
+            return;
+        }
+
+        leftOp = EnsureIterationResource(leftOp, leftBoundVars);
+        rightOp = EnsureIterationResource(rightOp, rightBoundVars);
+
+        ExprList filtersExprs = new ExprList();
+        for (String commonVar : commonVars) {
+            filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftBoundVars.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(rightBoundVars.get(commonVar)))));
+        }
+
+        rightOp = new com.aql.algebra.operators.OpFilter(filtersExprs, rightOp);
+        ExprVar countVar = new ExprVar("length");
+        rightOp = new OpCollect(rightOp, countVar);
+        rightOp = new com.aql.algebra.operators.OpProject(rightOp, countVar, false);
+
+        leftOp = new OpNest(leftOp, new AssignedResource(assignmentVarGenerator.getNew(), (Op)rightOp));
+        leftOp = new com.aql.algebra.operators.OpFilter(new Expr_Equals(new ExprVar(assignmentVarGenerator.getCurrent()), new Const_Number(0)), leftOp);
+        createdAqlNodes.add(leftOp);
+        AddSparqlVariablesByOp(opMinus.hashCode(), leftBoundVars);
     }
 
         /*@Override
@@ -418,6 +453,18 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //update bound vars
         RewritingUtils.UpdateBoundVariablesMapping(boundVars, forLoopVarGenerator.getCurrent());
         return forLoop;
+    }
+
+    protected AqlQueryNode EnsureIterationResource(AqlQueryNode node, Map<String, String> boundVars){
+        if(!(node instanceof IterationResource)) {
+            if(!(node instanceof com.aql.algebra.operators.OpProject)){
+                //add project over left op + let stmt and then create for loop which we need
+                node = new com.aql.algebra.operators.OpProject(node, RewritingUtils.CreateProjectionVarExprList(boundVars), false);
+            }
+            node = AddNewAssignmentAndLoop((Op)node, boundVars);
+        }
+
+        return node;
     }
 
 }

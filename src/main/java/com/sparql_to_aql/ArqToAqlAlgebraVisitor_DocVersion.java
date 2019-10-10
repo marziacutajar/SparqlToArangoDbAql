@@ -37,7 +37,7 @@ public class ArqToAqlAlgebraVisitor_DocVersion extends ArqToAqlAlgebraVisitor
             graphNode = graphBGP.getGraphNode();
         }
 
-        Op currAqlNode = null;
+        AqlQueryNode currAqlNode = null;
         Map<String, String> usedVars = new HashMap<>();
         boolean firstTripleBeingProcessed = true;
 
@@ -83,13 +83,14 @@ public class ArqToAqlAlgebraVisitor_DocVersion extends ArqToAqlAlgebraVisitor
             RewritingUtils.ProcessTripleNode(triple.getPredicate(), NodeRole.PREDICATE, iterationVar, filterConditions, usedVars);
             RewritingUtils.ProcessTripleNode(triple.getObject(), NodeRole.OBJECT, iterationVar, filterConditions, usedVars);
 
-            Op filterOp = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);
+            if(filterConditions.size() > 0)
+                aqlNode = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);
 
             if(currAqlNode == null) {
-                currAqlNode = filterOp;
+                currAqlNode = aqlNode;
             }
             else {
-                currAqlNode = new OpNest(currAqlNode, filterOp);
+                currAqlNode = new OpNest(currAqlNode, aqlNode);
             }
 
             firstTripleBeingProcessed = false;

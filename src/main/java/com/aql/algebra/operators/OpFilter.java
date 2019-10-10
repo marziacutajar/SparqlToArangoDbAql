@@ -71,6 +71,12 @@ public class OpFilter extends Op1
         expressions = new ExprList();
     }
 
+    public OpFilter(Expr expr, AqlQueryNode sub) {
+        super(sub);
+        expressions = new ExprList();
+        expressions.add(expr);
+    }
+
     public OpFilter(ExprList exprs, AqlQueryNode sub) {
         super(sub);
         expressions = exprs;

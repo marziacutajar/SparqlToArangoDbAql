@@ -4,30 +4,50 @@ import com.aql.algebra.AqlConstants;
 import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.NodeVisitor;
 import com.aql.algebra.expressions.ExprAggregator;
+import com.aql.algebra.expressions.ExprVar;
 import com.aql.algebra.expressions.VarExprList;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class OpCollect extends Op1
 {
     private VarExprList groupVars;
     private List<ExprAggregator> aggregators;
-
-    public static OpCollect create(AqlQueryNode subOp, VarExprList groupVars, List<ExprAggregator> aggregators) {
-        return new OpCollect(subOp, groupVars, aggregators);
-    }
+    private boolean withCount;
+    private ExprVar countVar;
 
     public OpCollect(AqlQueryNode subOp, VarExprList groupVars, List<ExprAggregator> aggregators)
     {
         super(subOp);
         this.groupVars  = groupVars;
         this.aggregators = aggregators;
+        this.withCount = false;
+    }
+
+    public OpCollect(AqlQueryNode subOp, ExprVar countVar)
+    {
+        super(subOp);
+        this.groupVars  = new VarExprList();
+        this.aggregators = new ArrayList<>();
+        this.withCount = true;
+        this.countVar = countVar;
     }
 
     @Override
     public String getName()                     { return AqlConstants.keywordCollect; }
     public VarExprList getGroupVars()           { return groupVars; }
     public List<ExprAggregator> getAggregators()  { return aggregators; }
+
+    public boolean isWithCount(){
+        return withCount;
+    }
+
+    public ExprVar getCountVar(){
+        if(withCount)
+            return countVar;
+        else return null;
+    }
 
     @Override
     public void visit(NodeVisitor opVisitor)      { opVisitor.visit(this); }

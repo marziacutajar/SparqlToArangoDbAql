@@ -197,6 +197,9 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
         out.print("COLLECT ");
         op.getGroupVars();
         op.getAggregators();
+
+        if(op.isWithCount())
+            out.print("WITH COUNT INTO " + op.getCountVar().getVarName());
         out.println();
     }
 

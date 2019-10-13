@@ -10,5 +10,5 @@ public class ArangoAttributes {
     public static final String SUBJECT = "s";
     public static final String PREDICATE = "p";
     public static final String OBJECT = "o";
-
+    public static final String RDF_TYPE = "rdf:type";
 }

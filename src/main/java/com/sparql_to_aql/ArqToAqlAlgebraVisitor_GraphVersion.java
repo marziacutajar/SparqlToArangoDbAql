@@ -13,10 +13,8 @@ import com.sparql_to_aql.utils.RewritingUtils;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.sparql.algebra.op.*;
-
 import java.util.*;
 
-//TODO for this model, consider storing label and rdftype in the uri itself
 public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor {
 
     public ArqToAqlAlgebraVisitor_GraphVersion(List<String> defaultGraphNames, List<String> namedGraphs){
@@ -26,7 +24,6 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
         this._aqlAlgebraQueryExpressionTree = new ArrayList<>();
     }
 
-    //TODO consider using prune instead of certain filters on graph traversals..however I'm not sure if it's usable in 1..1 traversals
     @Override
     public void visit(OpBGP opBgp){
         boolean bgpWithGraphNode = false;

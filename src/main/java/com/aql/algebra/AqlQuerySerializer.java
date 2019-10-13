@@ -192,11 +192,9 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
     public void visit(OpCollect op){
         op.getChild().visit(this);
 
-        //TODO
         indent();
         out.print("COLLECT ");
-        op.getGroupVars();
-        op.getAggregators();
+        op.getVarExprs().visit(this);
 
         if(op.isWithCount())
             out.print("WITH COUNT INTO " + op.getCountVar().getVarName());

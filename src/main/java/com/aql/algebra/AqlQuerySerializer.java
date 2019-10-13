@@ -249,6 +249,8 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
         out.print(")");
     }
 
+    //TODO what if instead of having if else loops.. we have an overridden toString method in each Const class that we can just call..
+    // this would make this method so much shorter and better and could be applied elsewhere too
     public void visit(Constant expr){
         if(expr instanceof Const_Null){
             out.print("null");

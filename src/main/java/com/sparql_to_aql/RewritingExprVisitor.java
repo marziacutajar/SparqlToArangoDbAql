@@ -64,7 +64,11 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         }
         else if(func instanceof E_Bound) {
             createdAqlExprs.add(new Expr_NotEquals(createdAqlExprs.removeLast(), new Const_Null()));
-        }else{
+        }
+        else if(func instanceof E_Lang){
+            createdAqlExprs.add(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(createdAqlExprs.removeLast().getVarName(), ArangoAttributes.LITERAL_LANGUAGE)));
+        }
+        else{
             throw new UnsupportedOperationException("SPARQL expression not supported!");
         }
     }
@@ -107,6 +111,14 @@ public class RewritingExprVisitor extends ExprVisitorBase {
             aqlExpr = new Expr_NotEquals(param1, param2);
         }else if(func instanceof E_Subtract){
             aqlExpr = new Expr_Subtract(param1, param2);
+        }
+        else if(func instanceof E_LangMatches){
+            if(func.getArg2().getConstant().getString().equals("*")){
+                aqlExpr = new Expr_NotEquals(param1, new Const_Null());
+            }
+            else{
+                aqlExpr = new Expr_Equals(new Expr_Lower(param1), new Expr_Lower(param2));
+            }
         }
         else{
             throw new UnsupportedOperationException("SPARQL expression not supported!");

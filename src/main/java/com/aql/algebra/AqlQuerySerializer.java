@@ -223,6 +223,11 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
             expr.getArg2().visit(this);
             out.print(")");
         }
+        else if(expr instanceof Expr_In){
+            expr.getArg1().visit(this);
+            out.print(" IN ");
+            expr.getArg2().visit(this);
+        }
     }
 
     public void visit(ExprFunction3 expr){
@@ -266,7 +271,16 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
             out.print("]");
         }else if(expr instanceof Const_Object) {
             out.print("{");
-            ((Const_Object)expr).getObject().visit(this);
+            Map<String, Expr> keyValues = ((Const_Object)expr).getObject();
+            Iterator<Map.Entry<String, Expr>> it = keyValues.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, Expr> pair = it.next();
+                out.print(pair.getKey() + ": ");
+                pair.getValue().visit(this);
+                if(it.hasNext()){
+                    out.print(", ");
+                }
+            }
             out.print("}");
         }
     }

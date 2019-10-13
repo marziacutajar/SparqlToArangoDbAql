@@ -46,13 +46,11 @@ public class RewritingUtils {
     }
 
     public static void ProcessTripleNode(Node node, String currAqlVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, String> boundVars, boolean isPredicate){
-        Set<String> usedSparqlVars = boundVars.keySet();
-
         //We can have a mixture of LET and FILTER statements after each other - refer to https://www.arangodb.com/docs/stable/aql/operations-filter.html
         //IMP: in ARQ query expression, blank nodes are represented as variables ??0, ??1 etc.. and an Invalid SPARQL query error is given if same blank node is used in more than one subquery
         if(node.isVariable()) {
             String var_name = node.getName();
-            if(usedSparqlVars.contains(var_name)){
+            if(boundVars.containsKey(var_name)){
                 //node was already bound in another triple, add a filter condition instead
                 filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(currAqlVarName), com.aql.algebra.expressions.Var.alloc(boundVars.get(var_name))));
             }

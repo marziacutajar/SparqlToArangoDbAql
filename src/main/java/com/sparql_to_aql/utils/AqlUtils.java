@@ -10,4 +10,6 @@ public class AqlUtils {
 
         return String.join(separator, varParts);
     }
+
+    public static String escapeString(String string) { return "`" + string + "`";}
 }

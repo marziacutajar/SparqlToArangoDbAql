@@ -3,6 +3,8 @@ package com.aql.algebra.expressions;
 import com.aql.algebra.ExprVisitor;
 import com.sparql_to_aql.exceptions.AqlExprTypeException;
 
+import java.util.Map;
+
 public abstract class Constant extends Expr
 {
     // Don't create direct - the static builders manage the value/node relationship
@@ -39,7 +41,7 @@ public abstract class Constant extends Expr
         raise(new AqlExprTypeException("Not an array: "+this)); return null;
     }
 
-    public VarExprList getObject() throws AqlExprTypeException {
+    public Map<String, Expr> getObject() throws AqlExprTypeException {
         raise(new AqlExprTypeException("Not an object: "+this)); return null;
     }
 

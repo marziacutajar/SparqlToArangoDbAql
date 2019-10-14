@@ -117,6 +117,8 @@ public class RewritingExprVisitor extends ExprVisitorBase {
                 aqlExpr = new Expr_NotEquals(param1, new Const_Null());
             }
             else{
+                //TODO consider using LIKE function instead of Equals here..
+                // since langMatches in SPARQL would would match, for example, "en-GB" even if the second parameter is "EN"
                 aqlExpr = new Expr_Equals(new Expr_Lower(param1), new Expr_Lower(param2));
             }
         }

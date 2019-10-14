@@ -1,11 +1,11 @@
 package com.sparql_to_aql;
 
-import com.aql.algebra.AqlConstants;
 import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.AqlQuerySerializer;
 import com.arangodb.ArangoCursor;
-import com.arangodb.ArangoDB;
 import com.arangodb.entity.BaseDocument;
+import com.arangodb.internal.cursor.ArangoCursorImpl;
+import com.arangodb.util.ArangoCursorInitializer;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.RdfObjectTypes;
@@ -17,11 +17,7 @@ import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
 import org.apache.commons.cli.*;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
-import org.apache.jena.sparql.algebra.optimize.TransformFilterPlacement;
-import org.apache.jena.sparql.algebra.walker.Walker;
 import org.apache.jena.sparql.sse.SSE;
-
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Files;
@@ -39,6 +35,8 @@ public class Main {
     {
         D, G
     }
+
+    private static final int queryRuns = 10;
 
     public static void main(String[] args) {
         // create the parser
@@ -140,12 +138,17 @@ public class Main {
             //TODO possibly use below tutorial for visitor pattern to translate algebra tree
             //https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P
 
+            ArangoDbClient arangoDbClient = new ArangoDbClient();
+            ArangoCursor<BaseDocument> results = null;
             System.out.println("execute generated AQL query on ArangoDb");
-            Instant start = Instant.now();
-            ArangoCursor<BaseDocument> results = new ArangoDbClient().execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
-            Instant finish = Instant.now();
-            //measure elapsed time TODO output it to file
-            long timeElapsed = Duration.between(start, finish).toMillis();
+            long[] timeMeasurements = new long[queryRuns];
+            for(int i = 0; i < queryRuns; i++) {
+                Instant start = Instant.now();
+                results = arangoDbClient.execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
+                Instant finish = Instant.now();
+                //measure elapsed time TODO output it to file
+                timeMeasurements[i] = Duration.between(start, finish).toMillis();
+            }
 
             while(results.hasNext()){
                 BaseDocument curr = results.next();

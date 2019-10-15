@@ -116,13 +116,6 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
         out.println();
     }
 
-    //TODO consider: OpExtend doesn't really have any use... we can use OpNest only
-    public void visit(OpExtend opExtend){
-        opExtend.getChild().visit(this);
-        CURRENT_INDENT += BLOCK_INDENT;
-        opExtend.getAssignments().forEach(a -> a.visit(this));
-    }
-
     public void visit(OpNest opNest){
         opNest.getLeft().visit(this);
         CURRENT_INDENT += BLOCK_INDENT;

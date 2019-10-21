@@ -1,5 +1,6 @@
 package com.aql.algebra.resources;
 
+import com.aql.algebra.AqlConstants;
 import com.aql.algebra.NodeVisitor;
 import com.aql.algebra.expressions.Expr;
 import com.aql.algebra.operators.Op;
@@ -30,6 +31,9 @@ public class AssignedResource implements Resource{
         this.exprValue = exprValue;
         this.opValue = opValue;
     }
+
+    @Override
+    public String getName() { return AqlConstants.keywordLet; }
 
     public String getVariableName() { return variableName; }
 

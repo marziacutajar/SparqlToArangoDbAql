@@ -1,5 +1,6 @@
 package com.aql.algebra.resources;
 
+import com.aql.algebra.AqlConstants;
 import com.aql.algebra.NodeVisitor;
 
 import java.util.List;
@@ -44,6 +45,9 @@ public class GraphIterationResource implements Resource{
 
     @Override
     public void visit(NodeVisitor resVisitor) { resVisitor.visit(this); }
+
+    @Override
+    public String getName() { return AqlConstants.keywordFor; }
 
     public String getVertexVar(){
         return vertexVar;

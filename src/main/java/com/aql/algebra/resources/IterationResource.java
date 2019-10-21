@@ -1,5 +1,6 @@
 package com.aql.algebra.resources;
 
+import com.aql.algebra.AqlConstants;
 import com.aql.algebra.NodeVisitor;
 import com.aql.algebra.expressions.Expr;
 import com.aql.algebra.expressions.Var;
@@ -19,6 +20,9 @@ public class IterationResource implements Resource{
         this.iterationVariable = iterationVar;
         this.dataArrayExpr = dataArrayExpr;
     }
+
+    @Override
+    public String getName() { return AqlConstants.keywordFor; }
 
     public Var getIterationVar() { return iterationVariable; }
 

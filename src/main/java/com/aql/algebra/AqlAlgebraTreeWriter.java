@@ -38,6 +38,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
     private void visitOp2(Op2 op, ExprList exprs) {
         start(op, true);
         op.getLeft().visit(this);
+        out.ensureStartOfLine();
         op.getRight().visit(this);
 
         /*if (exprs != null) {
@@ -70,7 +71,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
             out.print(")");
 
         finish();
-        out.println();
+        finish(forloop);
     }
 
     public void visit(GraphIterationResource graphForloop){
@@ -130,7 +131,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
             out.print(")");
         }
         finish();
-        out.println();
+        finish(opAssign);
     }
 
     public void visit(OpNest opNest){
@@ -138,7 +139,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
     }
 
     public void visit(OpSort op){
-        start(op, true);
+        start(op, false);
 
         // Write conditions
         start();
@@ -169,8 +170,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
             start(tag, false);
         }
 
-        //TODO
-        //WriterExpr.output(out, sc.getExpression(), sContext) ;
+        sc.getExpression().visit(this);
 
         if (tag != null)
             finish();
@@ -186,12 +186,19 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
 
     public void visit(OpLimit op){
         start(op, false) ;
-        //writeIntOrDefault(op.getStart());
+        writeLongOrDefault(op.getStart());
         out.print(" ") ;
-        //writeIntOrDefault(op.getLength());
-        out.println() ;
+        writeLongOrDefault(op.getLength());
+        out.println();
         op.getChild().visit(this);
-        finish(op) ;
+        finish(op);
+    }
+
+    private void writeLongOrDefault(Long value) {
+        String x = "_";
+        if (value != Long.MAX_VALUE)
+            x = Long.toString(value);
+        out.print(x);
     }
 
     public void visit(OpCollect op){
@@ -285,6 +292,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
 
     public void finishVisit()
     {
+        out.println();
         out.flush();
         out.setAbsoluteIndent(0);
     }
@@ -299,6 +307,8 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
 
         if(newline)
             out.println();
+        else
+            out.print(" ");
 
         out.incIndent();
     }
@@ -307,9 +317,9 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
         out.print("(");
     }
 
-    private void finish(Op op) {
-        out.print(")");
+    private void finish(AqlQueryNode node) {
         out.decIndent();
+        out.print(")");
     }
 
     private void finish() {

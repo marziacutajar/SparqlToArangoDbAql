@@ -1,53 +1,27 @@
 package com.aql.algebra;
 
 import com.aql.algebra.expressions.*;
-import com.aql.algebra.expressions.constants.*;
 import com.aql.algebra.expressions.functions.*;
 import com.aql.algebra.operators.*;
 import com.aql.algebra.resources.AssignedResource;
 import com.aql.algebra.resources.GraphIterationResource;
 import com.aql.algebra.resources.IterationResource;
-import com.sparql_to_aql.utils.AqlUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.jena.atlas.io.IndentedWriter;
 
 import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
-    static final int BLOCK_INDENT = 5;
+    static final int BLOCK_INDENT = 2;
 
-    private int CURRENT_INDENT;
-
-    //TODO consider using IndentedWriter here instead.. somehow
-    PrintWriter out;
+    IndentedWriter out;
 
     public AqlAlgebraTreeWriter(OutputStream _out)
     {
-        out = new PrintWriter(_out);
-        CURRENT_INDENT = 0;
-    }
-
-    public AqlAlgebraTreeWriter(StringWriter _out)
-    {
-        out = new PrintWriter(_out);
-        CURRENT_INDENT = 0;
-    }
-
-    private void indent(){
-        out.print(StringUtils.repeat(" ", CURRENT_INDENT));
-    }
-
-    private void incIndent(){
-        CURRENT_INDENT += BLOCK_INDENT;
-    }
-
-    private void decIndent(){
-        CURRENT_INDENT -= BLOCK_INDENT;
+        out = new IndentedWriter(_out);
+        out.setUnitIndent(BLOCK_INDENT);
     }
 
     private void visitOpN(OpN op) {
@@ -100,7 +74,6 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
     }
 
     public void visit(GraphIterationResource graphForloop){
-        indent();
         out.print("FOR " + graphForloop.getVertexVar());
 
         if(graphForloop.getEdgeVar() != null){
@@ -113,7 +86,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
         out.print(" IN ");
 
         if(graphForloop.getMin() != null){
-            out.print(graphForloop.getMin());
+            out.print(graphForloop.getMin().toString());
             if(graphForloop.getMax() != null)
                 out.print(".." + graphForloop.getMax());
         }
@@ -145,7 +118,6 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
     }
 
     public void visit(AssignedResource opAssign){
-        indent();
         start(opAssign, false);
         start();
         out.print(opAssign.getVariableName());
@@ -225,7 +197,6 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
     public void visit(OpCollect op){
         op.getChild().visit(this);
 
-        indent();
         out.print("COLLECT ");
         op.getVarExprs().visit(this);
 
@@ -284,40 +255,8 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
         out.print(")");
     }
 
-    //TODO what if instead of having if else loops.. we have an overridden toString method in each Const class that we can just call..
-    // this would make this method so much shorter and better and could be applied elsewhere too
     public void visit(Constant expr){
-        if(expr instanceof Const_Null){
-            out.print("null");
-        } else if(expr instanceof Const_Bool){
-            out.print(((Const_Bool)expr).getBoolean());
-        } else if(expr instanceof Const_String){
-            out.print(AqlUtils.quoteString(((Const_String)expr).getString()));
-        } else if(expr instanceof Const_Number){
-            out.print(((Const_Number)expr).getNumber());
-        } else if(expr instanceof Const_Array){
-            Constant[] arrayValues = ((Const_Array)expr).getArray();
-            out.print("[");
-            for (int i = 0; i < arrayValues.length; i++) {
-                arrayValues[i].visit(this);
-                if(i < arrayValues.length - 1)
-                    out.print(", ");
-            }
-            out.print("]");
-        }else if(expr instanceof Const_Object) {
-            out.print("{");
-            Map<String, Expr> keyValues = ((Const_Object)expr).getObject();
-            Iterator<Map.Entry<String, Expr>> it = keyValues.entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<String, Expr> pair = it.next();
-                out.print(pair.getKey() + ": ");
-                pair.getValue().visit(this);
-                if(it.hasNext()){
-                    out.print(", ");
-                }
-            }
-            out.print("}");
-        }
+        out.print(expr.toString());
     }
 
     public void visit(ExprVar expr){
@@ -347,7 +286,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
     public void finishVisit()
     {
         out.flush();
-        CURRENT_INDENT = 0;
+        out.setAbsoluteIndent(0);
     }
 
     private void start(AqlQueryNode op, boolean newline) {
@@ -361,7 +300,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
         if(newline)
             out.println();
 
-        incIndent();
+        out.incIndent();
     }
 
     private void start() {
@@ -370,7 +309,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
 
     private void finish(Op op) {
         out.print(")");
-        decIndent();
+        out.decIndent();
     }
 
     private void finish() {

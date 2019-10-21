@@ -13,11 +13,9 @@ public class Const_Number extends Constant {
     @Override
     public double getNumber()  { return value; }
 
-    /*@Override
+    @Override
     public String toString()
     {
-        // Preserve lexical form
-        if ( getNode() != null ) return super.asString();
-        return Utils.stringForm(value);
-    }*/
+        return String.valueOf(value);
+    }
 }

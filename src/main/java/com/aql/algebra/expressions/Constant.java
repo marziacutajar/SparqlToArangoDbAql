@@ -56,13 +56,14 @@ public abstract class Constant extends Expr
     @Override
     public void visit(ExprVisitor visitor) { visitor.visit(this); }
 
-    /*@Override
+    @Override
     public String toString()
     {
-        return asQuotedString();
+        return null;
+        //return asQuotedString();
     }
 
-    public final String asQuotedString()
+    /*public final String asQuotedString()
     { return asQuotedString(new SerializationContext()); }
 
     public final String asQuotedString(SerializationContext context)

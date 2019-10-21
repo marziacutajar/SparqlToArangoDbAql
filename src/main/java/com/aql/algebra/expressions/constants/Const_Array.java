@@ -22,4 +22,16 @@ public class Const_Array extends Constant {
 
     @Override
     public Constant[] getArray()  { return array; }
+
+    @Override
+    public String toString(){
+        String val = "[";
+        for (int i = 0; i < array.length; i++) {
+            val += array[i].toString();
+            if(i < array.length - 1)
+                val += ", ";
+        }
+        val += "]";
+        return val;
+    }
 }

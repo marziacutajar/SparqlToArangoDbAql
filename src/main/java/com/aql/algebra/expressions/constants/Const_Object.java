@@ -5,6 +5,7 @@ import com.aql.algebra.expressions.Expr;
 import com.aql.algebra.expressions.VarExprList;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 public class Const_Object extends Constant {
@@ -23,4 +24,20 @@ public class Const_Object extends Constant {
 
     @Override
     public Map<String, Expr> getObject()  { return keyValues; }
+
+    @Override
+    public String toString(){
+        String val = "{";
+        Iterator<Map.Entry<String, Expr>> it = keyValues.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, Expr> pair = it.next();
+            val += pair.getKey() + ": ";
+            pair.getValue().toString();
+            if(it.hasNext()){
+                val += ", ";
+            }
+        }
+        val += "}";
+        return val;
+    }
 }

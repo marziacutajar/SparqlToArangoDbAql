@@ -9,3 +9,5 @@
 *.iml
 *.ipr
 /out/
+
+/runtime_results/

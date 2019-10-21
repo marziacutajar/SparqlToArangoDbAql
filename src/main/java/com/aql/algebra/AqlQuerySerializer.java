@@ -242,40 +242,8 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
         out.print(")");
     }
 
-    //TODO what if instead of having if else loops.. we have an overridden toString method in each Const class that we can just call..
-    // this would make this method so much shorter and better and could be applied elsewhere too
     public void visit(Constant expr){
-        if(expr instanceof Const_Null){
-            out.print("null");
-        } else if(expr instanceof Const_Bool){
-            out.print(((Const_Bool)expr).getBoolean());
-        } else if(expr instanceof Const_String){
-            out.print(AqlUtils.quoteString(((Const_String)expr).getString()));
-        } else if(expr instanceof Const_Number){
-            out.print(((Const_Number)expr).getNumber());
-        } else if(expr instanceof Const_Array){
-            Constant[] arrayValues = ((Const_Array)expr).getArray();
-            out.print("[");
-            for (int i = 0; i < arrayValues.length; i++) {
-                arrayValues[i].visit(this);
-                if(i < arrayValues.length - 1)
-                    out.print(", ");
-            }
-            out.print("]");
-        }else if(expr instanceof Const_Object) {
-            out.print("{");
-            Map<String, Expr> keyValues = ((Const_Object)expr).getObject();
-            Iterator<Map.Entry<String, Expr>> it = keyValues.entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<String, Expr> pair = it.next();
-                out.print(pair.getKey() + ": ");
-                pair.getValue().visit(this);
-                if(it.hasNext()){
-                    out.print(", ");
-                }
-            }
-            out.print("}");
-        }
+        out.print(expr.toString());
     }
 
     public void visit(ExprVar expr){

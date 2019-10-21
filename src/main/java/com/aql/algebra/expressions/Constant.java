@@ -60,20 +60,5 @@ public abstract class Constant extends Expr
     public String toString()
     {
         return null;
-        //return asQuotedString();
     }
-
-    /*public final String asQuotedString()
-    { return asQuotedString(new SerializationContext()); }
-
-    public final String asQuotedString(SerializationContext context)
-    {
-        // If possible, make a node and use that as the formatted output.
-        if ( node == null )
-            node = asNode();
-        if ( node != null )
-            return FmtUtils.stringForNode(node, context);
-        return toString();
-    }
-     */
 }

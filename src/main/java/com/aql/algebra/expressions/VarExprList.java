@@ -156,9 +156,8 @@ public class VarExprList extends Expr {
     }
 
     @Override
-    public String toString()
-    {
-        return vars.toString() + " // "+exprs.toString();
+    public String toString() {
+        return vars.toString() + " // " + exprs.toString();
     }
 
     @Override

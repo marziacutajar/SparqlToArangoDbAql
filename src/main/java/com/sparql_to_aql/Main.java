@@ -2,10 +2,9 @@ package com.sparql_to_aql;
 
 import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.AqlQuerySerializer;
+import com.aql.algebra.AqlAlgebraTreeWriter;
 import com.arangodb.ArangoCursor;
 import com.arangodb.entity.BaseDocument;
-import com.arangodb.internal.cursor.ArangoCursorImpl;
-import com.arangodb.util.ArangoCursorInitializer;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.RdfObjectTypes;
@@ -14,12 +13,15 @@ import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpGraphTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpProjectOverSliceTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
+import com.sparql_to_aql.utils.AqlUtils;
+import com.sparql_to_aql.utils.SparqlUtils;
 import org.apache.commons.cli.*;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
 import org.apache.jena.sparql.sse.SSE;
-import java.io.IOException;
-import java.io.StringWriter;
+
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -36,7 +38,7 @@ public class Main {
         D, G
     }
 
-    private static final int queryRuns = 10;
+    private static final int queryRuns = 15;
 
     public static void main(String[] args) {
         // create the parser
@@ -57,10 +59,11 @@ public class Main {
 
             System.out.println("Reading SPARQL query from file...");
             String filePath = line.getOptionValue("f");
+            String fileName = FilenameUtils.removeExtension(new File(filePath).getName());
+
             String sparqlQuery = new String(Files.readAllBytes(Paths.get(filePath)));
 
             ARANGODATAMODEL data_model = ARANGODATAMODEL.valueOf(line.getOptionValue("m"));
-
             //TODO below QueryFactory.create part is very slow unless it's warmed up! make sure to think about this when measuring performance time
             Query query = QueryFactory.create(sparqlQuery);
 
@@ -118,12 +121,22 @@ public class Main {
 
             OpWalker.walk(op, queryExpressionTranslator);
 
+            List<AqlQueryNode> aqlQueryExpressionSubParts = queryExpressionTranslator.GetAqlAlgebraQueryExpression();
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            AqlAlgebraTreeWriter aqlAlgebraWriter = new AqlAlgebraTreeWriter(outputStream);
+            for(AqlQueryNode aqlQueryPart: aqlQueryExpressionSubParts){
+                aqlQueryPart.visit(aqlAlgebraWriter);
+                aqlAlgebraWriter.finishVisit();
+            }
+
+            System.out.println(outputStream.toString());
+            outputStream.close();
+
             //Use AQL query serializer to get actual AQL query
             StringWriter out = new StringWriter();
             AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(out);
             //AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(System.out);
 
-            List<AqlQueryNode> aqlQueryExpressionSubParts = queryExpressionTranslator.GetAqlAlgebraQueryExpression();
             for(AqlQueryNode aqlQueryPart: aqlQueryExpressionSubParts){
                 //TODO this might be an issue... best to use OpSequence and iterate inside the serializer instead..
                 // or call another method here that tells serializer to just add text to current query with correct indents...
@@ -134,21 +147,34 @@ public class Main {
             String aqlQuery = out.toString();
             System.out.println(aqlQuery);
 
-            //TODO also consider using before and after visitors if we need them... we might
-            //TODO possibly use below tutorial for visitor pattern to translate algebra tree
-            //https://www.codeproject.com/Articles/1241363/Expression-Tree-Traversal-Via-Visitor-Pattern-in-P
-
             ArangoDbClient arangoDbClient = new ArangoDbClient();
             ArangoCursor<BaseDocument> results = null;
             System.out.println("execute generated AQL query on ArangoDb");
+
             long[] timeMeasurements = new long[queryRuns];
+            //long sum = 0;
+            String directoryName = "runtime_results/" + data_model.toString();
+            new File(directoryName).mkdirs();
+
+            FileWriter csvWriter = new FileWriter( directoryName + "/" + fileName + ".csv");
+
             for(int i = 0; i < queryRuns; i++) {
                 Instant start = Instant.now();
                 results = arangoDbClient.execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
                 Instant finish = Instant.now();
-                //measure elapsed time TODO output it to file
                 timeMeasurements[i] = Duration.between(start, finish).toMillis();
+                //sum += timeMeasurements[i];
+                csvWriter.append(String.valueOf(timeMeasurements[i]));
+                if(i < queryRuns-1){
+                    csvWriter.append(",");
+                }
             }
+
+            csvWriter.flush();
+            csvWriter.close();
+
+            /*long averageRuntime = (sum / queryRuns);
+            System.out.println("Average query runtime: " + averageRuntime + "ms");*/
 
             while(results.hasNext()){
                 BaseDocument curr = results.next();
@@ -156,16 +182,30 @@ public class Main {
                 Iterator<Map.Entry<String, Object>> it = rowColumns.entrySet().iterator();
                 while (it.hasNext()) {
                     Map.Entry<String, Object> pair = it.next();
-
+                    String variableName = pair.getKey();
                     if(pair.getValue() instanceof HashMap){
                         Map<String, Object> values = ((HashMap) pair.getValue());
+                        String formattedValue;
                         String type = values.get(ArangoAttributes.TYPE).toString();
+                        //get value and format it if necessary (quoted if string, just value if otherwise), if it has lang put @lang as well
                         switch (type){
                             case RdfObjectTypes.IRI:
-                                //TODO get value and format it as uri
+                                formattedValue = SparqlUtils.formatIri(values.get(ArangoAttributes.VALUE).toString());
                                 break;
                             case RdfObjectTypes.LITERAL:
-                                //TODO get value and format it if necessary (quoted if string, just value if otherwise), if it has lang put @lang as well
+                                String val = values.get(ArangoAttributes.VALUE).toString();
+                                if(values.get(ArangoAttributes.VALUE) instanceof String){
+                                    formattedValue = AqlUtils.quoteString(val);
+                                    if(values.get(ArangoAttributes.LITERAL_LANGUAGE) != null){
+                                        formattedValue += "@" + values.get(ArangoAttributes.LITERAL_LANGUAGE).toString();
+                                    }
+                                }
+                                else{
+                                    formattedValue = val;
+                                }
+
+                                //String datatype = values.get(ArangoAttributes.LITERAL_DATA_TYPE).toString();
+                                //System.out.println(variableName + ": " + formattedValue);
                                 break;
                             default:
                                 throw new UnsupportedOperationException("Type not supported");

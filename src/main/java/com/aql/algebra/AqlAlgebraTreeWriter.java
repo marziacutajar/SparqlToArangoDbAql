@@ -106,12 +106,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
 
     public void visit(OpFilter op){
         start(op, false);
-        ExprList filterExprs = op.getExprs();
-        for(int i=0; i < filterExprs.size(); i++){
-            filterExprs.get(i).visit(this);
-            if(i < filterExprs.size()-1)
-                out.print(AqlConstants.SYM_AND);
-        }
+        formatExprList(op.getExprs());
         out.println();
         op.getChild().visit(this);
 
@@ -323,6 +318,28 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
     }
 
     private void finish() {
+        out.print(")");
+    }
+
+    private void formatExprList(ExprList exprList){
+        if(exprList.size() == 0){
+            out.print("()") ;
+            return ;
+        }
+
+        if(exprList.size() == 1){
+            exprList.get(0).visit(this);
+            return;
+        }
+
+        out.print("(");
+
+        for(int i=0; i < exprList.size(); i++){
+            exprList.get(i).visit(this);
+            if(i < exprList.size()-1)
+                out.print(" ");
+        }
+
         out.print(")");
     }
 }

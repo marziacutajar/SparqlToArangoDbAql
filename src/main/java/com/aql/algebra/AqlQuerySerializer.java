@@ -1,13 +1,11 @@
 package com.aql.algebra;
 
 import com.aql.algebra.expressions.*;
-import com.aql.algebra.expressions.constants.*;
 import com.aql.algebra.expressions.functions.*;
 import com.aql.algebra.operators.*;
 import com.aql.algebra.resources.AssignedResource;
 import com.aql.algebra.resources.GraphIterationResource;
 import com.aql.algebra.resources.IterationResource;
-import com.sparql_to_aql.utils.AqlUtils;
 import org.apache.commons.lang3.StringUtils;
 import java.io.OutputStream;
 import java.io.PrintWriter;

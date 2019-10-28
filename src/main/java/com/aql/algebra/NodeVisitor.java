@@ -12,7 +12,7 @@ public interface NodeVisitor
     void visit(OpNest opNest);
 
     // OpN
-    //TODO consider using OpSequence to store a sequence of statements that are on the same level (sequence of stmts in the main scope, or sequence of stmts in a for loop)
+    //use OpSequence to store a sequence of statements that are on the same level (sequence of stmts in the main scope, or sequence of stmts in a for loop that aren't nested within each other)
     // ex. if we have a for loop that contains a let statement and another for loop, we can use an OpSequence variable inside OpFor class to store those 2
     void visit(OpSequence opSequence);
 

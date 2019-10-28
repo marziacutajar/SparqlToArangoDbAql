@@ -121,13 +121,11 @@ public class Main {
 
             OpWalker.walk(op, queryExpressionTranslator);
 
-            List<AqlQueryNode> aqlQueryExpressionSubParts = queryExpressionTranslator.GetAqlAlgebraQueryExpression();
+            AqlQueryNode aqlQueryExpression = queryExpressionTranslator.GetAqlAlgebraQueryExpression();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             AqlAlgebraTreeWriter aqlAlgebraWriter = new AqlAlgebraTreeWriter(outputStream);
-            for(AqlQueryNode aqlQueryPart: aqlQueryExpressionSubParts){
-                aqlQueryPart.visit(aqlAlgebraWriter);
-                aqlAlgebraWriter.finishVisit();
-            }
+            aqlQueryExpression.visit(aqlAlgebraWriter);
+            aqlAlgebraWriter.finishVisit();
 
             System.out.println(outputStream.toString());
             outputStream.close();
@@ -136,12 +134,8 @@ public class Main {
             StringWriter out = new StringWriter();
             AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(out);
             //AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(System.out);
-
-            for(AqlQueryNode aqlQueryPart: aqlQueryExpressionSubParts){
-                //TODO this might be an issue... best to use OpSequence and iterate inside the serializer instead..
-                aqlQueryPart.visit(aqlQuerySerializer);
-                aqlQuerySerializer.finishVisit();
-            }
+            aqlQueryExpression.visit(aqlQuerySerializer);
+            aqlQuerySerializer.finishVisit();
 
             String aqlQuery = out.toString();
             System.out.println(aqlQuery);

@@ -3,6 +3,7 @@ package com.sparql_to_aql;
 import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.expressions.ExprList;
 import com.aql.algebra.operators.*;
+import com.aql.algebra.operators.OpSequence;
 import com.aql.algebra.resources.GraphIterationResource;
 import com.aql.algebra.resources.IterationResource;
 import com.sparql_to_aql.constants.ArangoAttributes;
@@ -21,7 +22,7 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
         super(defaultGraphNames, namedGraphs);
         this.defaultGraphNames = defaultGraphNames;
         this.namedGraphNames = namedGraphs;
-        this._aqlAlgebraQueryExpressionTree = new ArrayList<>();
+        this._aqlAlgebraQueryExpressionTree = new OpSequence();
     }
 
     @Override

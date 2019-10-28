@@ -265,7 +265,12 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
     }
 
     public void visit(OpSequence opSequence){
-
+        for (Iterator<AqlQueryNode> iter = opSequence.iterator(); iter.hasNext();)
+        {
+            AqlQueryNode sub = iter.next();
+            sub.visit(this);
+            CURRENT_INDENT = 0;
+        }
     }
 
     public void finishVisit()

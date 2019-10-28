@@ -26,11 +26,12 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
 
     private void visitOpN(OpN op) {
         start(op, true);
-        for (Iterator<Op> iter = op.iterator(); iter.hasNext();)
+        for (Iterator<AqlQueryNode> iter = op.iterator(); iter.hasNext();)
         {
-            Op sub = iter.next();
-            out.println();
+            AqlQueryNode sub = iter.next();
             sub.visit(this);
+            if(iter.hasNext())
+                out.println();
         }
         finish(op) ;
     }
@@ -282,7 +283,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
     }
 
     public void visit(OpSequence opSequence){
-
+        visitOpN(opSequence);
     }
 
     public void finishVisit()

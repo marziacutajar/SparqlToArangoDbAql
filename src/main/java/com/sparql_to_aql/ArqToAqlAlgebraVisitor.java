@@ -4,6 +4,7 @@ import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.expressions.ExprVar;
 import com.aql.algebra.expressions.constants.Const_Object;
 import com.aql.algebra.operators.*;
+import com.aql.algebra.operators.OpSequence;
 import com.aql.algebra.resources.AssignedResource;
 import com.aql.algebra.resources.IterationResource;
 import com.sparql_to_aql.constants.ArangoAttributes;
@@ -29,19 +30,18 @@ import java.util.*;
 
 //class used for rewriting of SPARQL algebra query expression to AQL algebra query expression
 //translating the SPARQL algebra expressions directly to an AQL query would be hard to re-optimise
-//TODO decide whether to add visit methods for OpList, OpPath and others.. or whether they'll be unsupported
 public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     //private String defaultGraphCollectionOrVarName;
 
-    //Aql query can be made of a sequence of "subqueries" and assignments, hence the list
-    protected List<AqlQueryNode> _aqlAlgebraQueryExpressionTree;
+    //Aql query can be made of a sequence of "subqueries" and assignments, hence OpSequence
+    protected OpSequence _aqlAlgebraQueryExpressionTree;
 
     List<String> defaultGraphNames;
     List<String> namedGraphNames;
 
     //This method is to be called after the visitor has been used
-    public List<AqlQueryNode> GetAqlAlgebraQueryExpression()
+    public AqlQueryNode GetAqlAlgebraQueryExpression()
     {
         _aqlAlgebraQueryExpressionTree.add(createdAqlNodes.getFirst());
 
@@ -64,7 +64,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     public ArqToAqlAlgebraVisitor(List<String> defaultGraphNames, List<String> namedGraphs){
         this.defaultGraphNames = defaultGraphNames;
         this.namedGraphNames = namedGraphs;
-        this._aqlAlgebraQueryExpressionTree = new ArrayList<>();
+        this._aqlAlgebraQueryExpressionTree = new OpSequence();
     }
 
     @Override
@@ -167,8 +167,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpJoin opJoin){
-        //TODO probably a bug here.. we're getting first from createdAqlNodes but if it contains more than 2 nodes this is wrong.. I think changing to removeLast would be enough
-        AqlQueryNode opToJoin1 = createdAqlNodes.removeFirst();
+        AqlQueryNode opToJoin1 = createdAqlNodes.removeLast();
         //whether we use LET stsms or not here depends if the ops being joined include a projection or not
         boolean joinToValuesTable = false;
         OpTable opTable = null;
@@ -199,7 +198,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             createdAqlNodes.add(opToJoin1);
         }
         else{
-            AqlQueryNode opToJoin2 = createdAqlNodes.removeFirst();
+            AqlQueryNode opToJoin2 = createdAqlNodes.removeLast();
             Map<String, String> boundVariablesInOp2ToJoin = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
 
             if(opToJoin2 instanceof com.aql.algebra.operators.OpProject){
@@ -295,8 +294,8 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpUnion opUnion){
         //how we perform this operation depends if the union is between subqueries that have a projection or not
-        AqlQueryNode leftOp = createdAqlNodes.removeFirst();
-        AqlQueryNode rightOp = createdAqlNodes.removeFirst();
+        AqlQueryNode rightOp = createdAqlNodes.removeLast();
+        AqlQueryNode leftOp = createdAqlNodes.removeLast();
 
         Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opUnion.getLeft().hashCode());
         Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opUnion.getRight().hashCode());
@@ -315,7 +314,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         String rightAssignVar = assignmentVarGenerator.getCurrent();
 
         Map<String, String> allBoundVars = MapUtils.MergeMapsKeepFirstDuplicateKeyValue(leftBoundVars, rightBoundVars);
-        //TODO consider using APPEND operator instead of UNION in AQL to keep any sorting order applied before
         //System.out.print("LET unionResult = UNION(left_result_here, right_result_here)");
         createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(com.aql.algebra.expressions.Var.alloc(leftAssignVar), com.aql.algebra.expressions.Var.alloc(rightAssignVar)), allBoundVars));
         AddSparqlVariablesByOp(opUnion.hashCode(), allBoundVars);
@@ -360,6 +358,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         rightOp = new OpCollect(rightOp, countVar);
         rightOp = new com.aql.algebra.operators.OpProject(rightOp, countVar, false);
 
+        //TODO if we start allowing subqueries (AqlQueryNode) in expressions, we wouldn't need an extra assignment here
         leftOp = new OpNest(leftOp, new AssignedResource(assignmentVarGenerator.getNew(), (Op)rightOp));
         leftOp = new com.aql.algebra.operators.OpFilter(new Expr_Equals(new ExprVar(assignmentVarGenerator.getCurrent()), new Const_Number(0)), leftOp);
         createdAqlNodes.add(leftOp);

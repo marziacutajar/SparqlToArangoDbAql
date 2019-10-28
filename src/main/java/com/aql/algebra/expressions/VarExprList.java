@@ -98,7 +98,6 @@ public class VarExprList extends Expr {
         vars.add(var);
     }
 
-    //TODO change exceptions thrown below.. maybe custom exception?
     public void add(Var var, Expr expr)
     {
         if (expr == null)
@@ -108,7 +107,7 @@ public class VarExprList extends Expr {
         }
 
         if (var == null)
-            throw new RuntimeException("Attempt to add a named expression with a null variable");
+            throw new IllegalArgumentException("Attempt to add a named expression with a null variable");
         if (exprs.containsKey(var))
             throw new RuntimeException("Attempt to assign an expression again");
 

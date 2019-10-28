@@ -5,6 +5,7 @@ import com.aql.algebra.expressions.constants.Const_String;
 import com.aql.algebra.expressions.functions.Expr_Equals;
 import com.aql.algebra.expressions.functions.Expr_LogicalAnd;
 import com.aql.algebra.expressions.functions.Expr_LogicalOr;
+import com.aql.algebra.expressions.functions.Expr_ToString;
 import com.sparql_to_aql.RewritingExprVisitor;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.NodeRole;
@@ -81,11 +82,8 @@ public class RewritingUtils {
             filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_LANGUAGE)), new Const_String(literal.getLiteralLanguage())));
         }
 
-        //deiced which of these 2 below methods to call to get the value - refer to https://www.w3.org/TR/sparql11-query/#matchingRDFLiterals
-        //would probably be easier to use the lexical form everywhere.. that way I don't have to parse by type.. although when showing results to user we'll have to customize their displays according to the type..
-        //literal.getLiteralValue();
-        //TODO using the lexical form won't work when we want to apply math or string functions to values in AQL!
-        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new Const_String(literal.getLiteralLexicalForm())));
+        //cast ArangoAttributes.VALUE to string - another option would be to handle different literal data types ie. cast literal value (literal.getLiteralValue()) according to type instead
+        filterConditions.add(new Expr_Equals(new Expr_ToString(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE))), new Const_String(literal.getLiteralLexicalForm())));
     }
 
     public static com.aql.algebra.expressions.ExprList ProcessBindingsTableJoin(Table table, Map<String, String> boundVars){

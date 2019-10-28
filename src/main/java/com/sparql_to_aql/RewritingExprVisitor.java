@@ -18,8 +18,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-//TODO IMP consider removing data type for literals from our arangodb documents - you'll know the type if the value is a number, a string, or a boolean, and if it's a language string it will have lang attribute
-
 //TODO it's gonna be hard to support expressions outside of filters ie. where we need the result of an expression.. possibly mention this in limitations..
 // because we'll need to apply calculations on the VALUE of the arango doc but then we need the TYPE, DATATYPE, LANG, as well..
 // ideally we know the op in which the expr is being used.. so we can add some other conditions

@@ -139,7 +139,6 @@ public class Main {
 
             for(AqlQueryNode aqlQueryPart: aqlQueryExpressionSubParts){
                 //TODO this might be an issue... best to use OpSequence and iterate inside the serializer instead..
-                // or call another method here that tells serializer to just add text to current query with correct indents...
                 aqlQueryPart.visit(aqlQuerySerializer);
                 aqlQuerySerializer.finishVisit();
             }
@@ -212,7 +211,8 @@ public class Main {
                         }
                     }
                     else{
-                        //TODO just output value as is?
+                        //TODO check what type the value is, ex. int, bool etc. and output the value as it would be in SPARQL
+                        System.out.print(pair.getValue());
                     }
                 }
             }

@@ -218,13 +218,9 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             //use list of common variables between the graph patterns that must be joined to add the joining filter conditions
             Set<String> commonVars = MapUtils.GetCommonMapKeys(boundVariablesInOp1ToJoin, boundVariablesInOp2ToJoin);
 
-            if(commonVars.size() > 0) {
-                //TODO move this logic to common method?
-                ExprList filtersExprs = new ExprList();
-                for (String commonVar : commonVars) {
-                    filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVariablesInOp1ToJoin.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVariablesInOp2ToJoin.get(commonVar)))));
-                }
-                opToJoin2 = new com.aql.algebra.operators.OpFilter(filtersExprs, opToJoin2);
+            ExprList filterExprs = RewritingUtils.GetFiltersOnCommonVars(boundVariablesInOp1ToJoin, boundVariablesInOp2ToJoin);
+            if(filterExprs.size() > 0) {
+                opToJoin2 = new com.aql.algebra.operators.OpFilter(filterExprs, opToJoin2);
             }
 
             //nest one for loop in the other and add filter statements
@@ -358,11 +354,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         leftOp = EnsureIterationResource(leftOp, leftBoundVars);
         rightOp = EnsureIterationResource(rightOp, rightBoundVars);
 
-        //TODO move this code to common method
-        ExprList filtersExprs = new ExprList();
-        for (String commonVar : commonVars) {
-            filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftBoundVars.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(rightBoundVars.get(commonVar)))));
-        }
+        ExprList filtersExprs = RewritingUtils.GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
 
         rightOp = new com.aql.algebra.operators.OpFilter(filtersExprs, rightOp);
         ExprVar countVar = new ExprVar("length");
@@ -476,6 +468,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     }
 
     //TODO check where we're using this method.. do we really need an iteration resource or can a forloop with filters etc. attached still be considered?
+    // add a method for the case where the above is enough
     protected AqlQueryNode EnsureIterationResource(AqlQueryNode node, Map<String, String> boundVars){
         if(!(node instanceof IterationResource)) {
             if(!(node instanceof com.aql.algebra.operators.OpProject)){
@@ -487,6 +480,5 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         return node;
     }
-
 }
 

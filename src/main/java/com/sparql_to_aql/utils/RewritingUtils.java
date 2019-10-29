@@ -271,7 +271,7 @@ public class RewritingUtils {
         Set<String> commonVars = MapUtils.GetCommonMapKeys(leftBoundVars, rightBoundVars);
         com.aql.algebra.expressions.ExprList filtersExprs = new com.aql.algebra.expressions.ExprList();
         for (String commonVar: commonVars){
-            filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftBoundVars.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(rightBoundVars.get(commonVar)))));
+            filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(leftBoundVars.get(commonVar)), com.aql.algebra.expressions.Var.alloc(rightBoundVars.get(commonVar))));
         }
 
         return filtersExprs;

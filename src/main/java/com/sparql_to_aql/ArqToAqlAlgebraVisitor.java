@@ -29,7 +29,6 @@ import org.apache.jena.sparql.expr.Expr;
 import java.util.*;
 
 //class used for rewriting of SPARQL algebra query expression to AQL algebra query expression
-//translating the SPARQL algebra expressions directly to an AQL query would be hard to re-optimise
 public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     //private String defaultGraphCollectionOrVarName;
@@ -54,7 +53,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     protected VariableGenerator graphForLoopEdgeVarGenerator = new VariableGenerator("g_e");
     protected VariableGenerator graphForLoopPathVarGenerator = new VariableGenerator("g_p");
 
-    //Keep track of which variables have already been bound (or not if optional), by mapping ARQ algebra op hashcode to the list of vars
+    //Keep track of which variables have already been bound (or not, if optional), by mapping ARQ algebra op hashcode to the list of vars
     //the second map is used to map the sparql variable name  into the corresponding aql variable name to use (due to for loop variable names)
     protected Map<Integer, Map<String, String>> boundSparqlVariablesByOp = new HashMap<>();
 
@@ -75,9 +74,9 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             start = 0;
 
         boolean projectAfterSlice = false;
-        Map<String, String> boundVars = GetSparqlVariablesByOp(opSlice.getSubOp().hashCode());
+        Map<String, String> boundVars = GetSparqlVariablesByOp(opSlice.getSubOp());
 
-        //check if currOp is project, if so add for loop with sort + project
+        //check if currOp is project, if so add a new for loop with the slicing + project
         if(currOp instanceof com.aql.algebra.operators.OpProject) {
             currOp = AddNewAssignmentAndLoop((Op) currOp, boundVars);
             projectAfterSlice = true;
@@ -117,7 +116,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             }
 
             com.aql.algebra.expressions.Expr aqlSortExpr = RewritingUtils.ProcessExpr(currCond.getExpression(), boundVars);
-            //add .value over sort variable if it is a bound var, since we want the actual value to be sorted (_id, _key, _rev, type will otherwise change the sort order)
+            //add .value over sort variable if it is a bound var, since we want the actual value to be sorted (_id, _key, _rev, type properties will otherwise change the sort order)
             if(aqlSortExpr instanceof com.aql.algebra.expressions.ExprVar && boundVars.values().contains(aqlSortExpr.getVarName()))
                 aqlSortExpr = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(aqlSortExpr.getVarName(), ArangoAttributes.VALUE));
 
@@ -138,6 +137,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         Map<String, String> boundVars = boundSparqlVariablesByOp.get(opProject.getSubOp().hashCode());
 
         if(currOp instanceof com.aql.algebra.operators.OpProject){
+            //TODO ORRR possibly modify the variable expressions in the current project op instead of adding another one??
             currOp = AddNewAssignmentAndLoop((Op)currOp, boundVars);
         }
 
@@ -158,6 +158,9 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         Op returnStmt = new com.aql.algebra.operators.OpProject(currOp, returnVariables, useDistinct);
 
+        //since we have projected all the variables that are required and we're projecting them with the name of the sparql variable already,
+        //the mapped AQL variable name is the same as the SPARQL variable name, thus update accordingly
+        //TODO consider moving this to a seperate method/class
         Map<String, String> projectedAqlVars = new HashMap<>();
         projectableVars.stream().map(v -> projectedAqlVars.put(v.getVarName(), v.getVarName()));
         boundSparqlVariablesByOp.put(opProject.hashCode(), projectedAqlVars);
@@ -168,51 +171,55 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     @Override
     public void visit(OpJoin opJoin){
         AqlQueryNode opToJoin1 = createdAqlNodes.removeLast();
-        //whether we use LET stsms or not here depends if the ops being joined include a projection or not
         boolean joinToValuesTable = false;
         OpTable opTable = null;
-        Map<String, String> boundVariablesInOp1ToJoin = new HashMap<>();
+        Map<String, String> boundVariablesInOp1ToJoin;
 
-        //if one side of the join is a table, cater for that
+        //if one side of the join is a VALUES table, cater for that
         if(opJoin.getLeft() instanceof OpTable){
             joinToValuesTable = true;
             opTable = (OpTable) opJoin.getLeft();
-            boundVariablesInOp1ToJoin = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
-        }
-        else if(opJoin.getRight() instanceof OpTable){
-            joinToValuesTable = true;
-            opTable = (OpTable) opJoin.getRight();
-            boundVariablesInOp1ToJoin = GetSparqlVariablesByOp(opJoin.getLeft().hashCode());
+            boundVariablesInOp1ToJoin = GetSparqlVariablesByOp(opJoin.getRight());
         }
         else{
-            boundVariablesInOp1ToJoin = GetSparqlVariablesByOp(opJoin.getLeft().hashCode());
+            boundVariablesInOp1ToJoin = GetSparqlVariablesByOp(opJoin.getLeft());
+            if(opJoin.getRight() instanceof OpTable){
+                joinToValuesTable = true;
+                opTable = (OpTable) opJoin.getRight();
+            }
         }
 
+        //since joining involves adding filter conditions to match the results of both operators
+        //we need two for loops that we can nest.
+        //We can't nest a projection op so assign it's projected data to a variable and add a new forloop over that data
         if(opToJoin1 instanceof com.aql.algebra.operators.OpProject){
             opToJoin1 = AddNewAssignmentAndLoop((Op)opToJoin1, boundVariablesInOp1ToJoin);
         }
 
         if(joinToValuesTable){
+            //add new filter conditions to the current op according to the VALUES table
             opToJoin1 = new com.aql.algebra.operators.OpFilter(RewritingUtils.ProcessBindingsTableJoin(opTable.getTable(), boundVariablesInOp1ToJoin), opToJoin1);
             SetSparqlVariablesByOp(opJoin.hashCode(), boundVariablesInOp1ToJoin);
             createdAqlNodes.add(opToJoin1);
         }
         else{
             AqlQueryNode opToJoin2 = createdAqlNodes.removeLast();
-            Map<String, String> boundVariablesInOp2ToJoin = GetSparqlVariablesByOp(opJoin.getRight().hashCode());
+            Map<String, String> boundVariablesInOp2ToJoin = GetSparqlVariablesByOp(opJoin.getRight());
 
+            //deal with the projection case as we did with opToJoin1 above
             if(opToJoin2 instanceof com.aql.algebra.operators.OpProject){
                 opToJoin2 = AddNewAssignmentAndLoop((Op)opToJoin1, boundVariablesInOp2ToJoin);
             }
 
-            //use list of common variables between the resulting "bgps" that must be joined
-            //also add used vars in join to sparqlVariablesByOp
+            //add used vars in both the graph patterns being joined to sparqlVariablesByOp
+            //since by joining we will now have all the variables in this scope
             AddSparqlVariablesByOp(opJoin.hashCode(), boundVariablesInOp1ToJoin);
             AddSparqlVariablesByOp(opJoin.hashCode(), boundVariablesInOp2ToJoin);
-
+            //use list of common variables between the graph patterns that must be joined to add the joining filter conditions
             Set<String> commonVars = MapUtils.GetCommonMapKeys(boundVariablesInOp1ToJoin, boundVariablesInOp2ToJoin);
 
             if(commonVars.size() > 0) {
+                //TODO move this logic to common method?
                 ExprList filtersExprs = new ExprList();
                 for (String commonVar : commonVars) {
                     filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVariablesInOp1ToJoin.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVariablesInOp2ToJoin.get(commonVar)))));
@@ -228,12 +235,11 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     @Override
     public void visit(OpFilter opFilter){
-        //add filter operator over current op
+        //add aql filter operator over current op
         AqlQueryNode currOp = createdAqlNodes.removeLast();
-        Map<String, String> boundVars = GetSparqlVariablesByOp(opFilter.getSubOp().hashCode());
-        //iterate over expressions, add filter conditions in AQL format to list for concatenating later
+        Map<String, String> boundVars = GetSparqlVariablesByOp(opFilter.getSubOp());
+        //iterate over expressions, add AQL filter conditions to list
         ExprList filterConds = new ExprList();
-
         for(Iterator<Expr> i = opFilter.getExprs().iterator(); i.hasNext();){
             filterConds.add(RewritingUtils.ProcessExpr(i.next(), boundVars));
         }
@@ -247,8 +253,8 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         AqlQueryNode rightOp = createdAqlNodes.removeLast();
         AqlQueryNode leftOp = createdAqlNodes.removeLast();
 
-        Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opLeftJoin.getLeft().hashCode());
-        Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opLeftJoin.getRight().hashCode());
+        Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opLeftJoin.getLeft());
+        Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opLeftJoin.getRight());
 
         leftOp = EnsureIterationResource(leftOp, leftBoundVars);
         String outerLoopVarName = ((IterationResource) leftOp).getIterationVar().getVarName();
@@ -256,6 +262,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //add filters on the right side results to make sure common variables match to those on the left
         ExprList filtersExprs = RewritingUtils.GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
 
+        //TODO check why we are applying them to the optional part below
         //if left join contains exprs, apply filter exprs on optional part
         if(opLeftJoin.getExprs() != null) {
             for (Iterator<Expr> i = opLeftJoin.getExprs().iterator(); i.hasNext(); ) {
@@ -275,6 +282,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             rightOp = new com.aql.algebra.operators.OpProject(new com.aql.algebra.operators.OpFilter(filtersExprs, rightProjectOp.getChild()), rightProjectOp.getExprs(), false);
         }
 
+        //TODO add comments or an example for why we are doing the below
         AssignedResource innerAssignment = new AssignedResource(assignmentVarGenerator.getNew(), (Op)rightOp);
 
         AqlQueryNode newOp = new com.aql.algebra.operators.OpNest(leftOp, innerAssignment);
@@ -291,14 +299,16 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         SetSparqlVariablesByOp(opLeftJoin.hashCode(), boundVars);
     }
 
+    //TODO add more comments to union code below
     @Override
     public void visit(OpUnion opUnion){
         //how we perform this operation depends if the union is between subqueries that have a projection or not
+        //example of what we need: LET unionResult = UNION(left_result_here, right_result_here);
         AqlQueryNode rightOp = createdAqlNodes.removeLast();
         AqlQueryNode leftOp = createdAqlNodes.removeLast();
 
-        Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opUnion.getLeft().hashCode());
-        Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opUnion.getRight().hashCode());
+        Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opUnion.getLeft());
+        Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opUnion.getRight());
 
         if(!(leftOp instanceof com.aql.algebra.operators.OpProject)){
             leftOp = new com.aql.algebra.operators.OpProject(leftOp, RewritingUtils.CreateProjectionVarExprList(leftBoundVars), false);
@@ -314,14 +324,14 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         String rightAssignVar = assignmentVarGenerator.getCurrent();
 
         Map<String, String> allBoundVars = MapUtils.MergeMapsKeepFirstDuplicateKeyValue(leftBoundVars, rightBoundVars);
-        //System.out.print("LET unionResult = UNION(left_result_here, right_result_here)");
         createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(com.aql.algebra.expressions.Var.alloc(leftAssignVar), com.aql.algebra.expressions.Var.alloc(rightAssignVar)), allBoundVars));
         AddSparqlVariablesByOp(opUnion.hashCode(), allBoundVars);
     }
 
+    //TODO add comments to minus code below
     @Override
     public void visit(OpMinus opMinus){
-        //add nested forloops for op with filters so we only keep solutions from leftOp that aren't compatible
+        // add nested forloops for op with filters so we only keep solutions from leftOp that aren't compatible
         // with rightOp, use project distinct to return leftop results from for loop? not sure if this will work
         // actually this might be wrong and we only need one for loop with a filter and then use a for loop within the filter to find all solution mappings in rightOp that are compatible solution mappings from leftOp
         // and we only keep mappings from leftOp were the count() of  items returned by that inner for loop is 0!!!
@@ -334,8 +344,8 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         AqlQueryNode rightOp = createdAqlNodes.removeLast();
         AqlQueryNode leftOp = createdAqlNodes.removeLast();
 
-        Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opMinus.getLeft().hashCode());
-        Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opMinus.getRight().hashCode());
+        Map<String, String> leftBoundVars = GetSparqlVariablesByOp(opMinus.getLeft());
+        Map<String, String> rightBoundVars = GetSparqlVariablesByOp(opMinus.getRight());
 
         Set<String> commonVars = MapUtils.GetCommonMapKeys(leftBoundVars, rightBoundVars);
 
@@ -348,6 +358,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         leftOp = EnsureIterationResource(leftOp, leftBoundVars);
         rightOp = EnsureIterationResource(rightOp, rightBoundVars);
 
+        //TODO move this code to common method
         ExprList filtersExprs = new ExprList();
         for (String commonVar : commonVars) {
             filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(leftBoundVars.get(commonVar))), com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(rightBoundVars.get(commonVar)))));
@@ -386,6 +397,11 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         AddSparqlVariablesByOp(opExtend.hashCode(), prevBoundVars);
     }*/
 
+    /**
+     * Add map of bound SPARQL to AQL variables in the scope of a particular SPARQL operator
+     * @param opHashCode hashcode of SPARQL operator
+     * @param variables map of bound SPARQL to AQL variables
+     */
     protected void AddSparqlVariablesByOp(Integer opHashCode, Map<String, String> variables){
         Map<String, String> currUsedVars = GetSparqlVariablesByOp(opHashCode);
         if(currUsedVars == null || currUsedVars.size() == 0) {
@@ -400,6 +416,10 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         boundSparqlVariablesByOp.put(opHashCode, variables);
     }
 
+    protected Map<String, String> GetSparqlVariablesByOp(org.apache.jena.sparql.algebra.Op sparqlOp){
+        return GetSparqlVariablesByOp(sparqlOp.hashCode());
+    }
+
     protected Map<String, String> GetSparqlVariablesByOp(Integer opHashCode){
         Map<String, String> currUsedVars = boundSparqlVariablesByOp.get(opHashCode);
         if(currUsedVars == null)
@@ -408,6 +428,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         return currUsedVars;
     }
 
+    //TODO add comments for below methods
     protected void AddGraphFilters(List<String> graphNames, String forLoopVarName, ExprList filterConditions){
         com.aql.algebra.expressions.Expr filterExpr = null;
 
@@ -454,6 +475,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         return forLoop;
     }
 
+    //TODO check where we're using this method.. do we really need an iteration resource or can a forloop with filters etc. attached still be considered?
     protected AqlQueryNode EnsureIterationResource(AqlQueryNode node, Map<String, String> boundVars){
         if(!(node instanceof IterationResource)) {
             if(!(node instanceof com.aql.algebra.operators.OpProject)){

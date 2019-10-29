@@ -5,6 +5,7 @@ public class AqlUtils {
         return "\"" + string + "\"";
     }
 
+    //build a variable for a property nested in some JSON object
     public static String buildVar(String... varParts) {
         String separator = ".";
 

@@ -23,10 +23,4 @@ public abstract class RewritingOpVisitorBase extends OpVisitorBase {
     public void visit(OpGroup opGroup){
         throw new UnsupportedOperationException("The SPARQL GROUPBY operation is not supported!");
     }
-
-    @Override
-    public void visit(OpMinus opMinus){
-        throw new UnsupportedOperationException("The SPARQL MINUS operation is not supported!");
-    }
-
 }

@@ -23,7 +23,6 @@ import java.util.Map;
 // ideally we know the op in which the expr is being used.. so we can add some other conditions
 //Expr is just an interface and there are other classes that implement it and represent operators - refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/expr/Expr.html
 public class RewritingExprVisitor extends ExprVisitorBase {
-    private String aqlExpressionString;
 
     Map<String, String> boundVariables;
 

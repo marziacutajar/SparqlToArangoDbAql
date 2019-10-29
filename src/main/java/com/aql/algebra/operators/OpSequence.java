@@ -1,16 +1,22 @@
 package com.aql.algebra.operators;
 
+import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.NodeVisitor;
 
 import java.util.List;
 
 public class OpSequence extends OpN {
-    public OpSequence(List<Op> ops){
+
+    public OpSequence(){
+        super();
+    }
+
+    public OpSequence(List<AqlQueryNode> ops){
         super(ops);
     }
 
     @Override
-    public OpN copy(List<Op> ops){
+    public OpN copy(List<AqlQueryNode> ops){
         return new OpSequence(ops);
     }
 

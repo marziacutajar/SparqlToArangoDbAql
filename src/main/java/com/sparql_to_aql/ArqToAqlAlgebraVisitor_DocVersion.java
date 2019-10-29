@@ -5,6 +5,7 @@ import com.aql.algebra.expressions.ExprList;
 import com.aql.algebra.expressions.constants.Const_String;
 import com.aql.algebra.expressions.functions.*;
 import com.aql.algebra.operators.*;
+import com.aql.algebra.operators.OpSequence;
 import com.aql.algebra.resources.IterationResource;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
@@ -24,7 +25,7 @@ public class ArqToAqlAlgebraVisitor_DocVersion extends ArqToAqlAlgebraVisitor
         super(defaultGraphNames, namedGraphs);
         this.defaultGraphNames = defaultGraphNames;
         this.namedGraphNames = namedGraphs;
-        this._aqlAlgebraQueryExpressionTree = new ArrayList<>();
+        this._aqlAlgebraQueryExpressionTree = new OpSequence();
     }
 
     @Override

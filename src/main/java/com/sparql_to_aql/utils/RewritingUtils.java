@@ -201,8 +201,9 @@ public class RewritingUtils {
     /**
      * Update the mapping of SPARQL variables to AQL variables, possibly due to the introduction of a new LET or FOR AQL statement
      * @param boundVariables  map of current bindings of SPARQL variables to AQL variables
-     * @param newLetOrForLoopVarName the variable name in the new LET or FOR statement that will be used to update the bindings
-     * @return
+     * @param newLetOrForLoopVarName the variable name in the new LET or FOR statement that will be used to update the bindings.
+     *                               If null, set the AQL variable name to match the SPARQL variable name
+     * @return updated map of bound variables
      */
     public static Map<String, String> UpdateBoundVariablesMapping(Map<String, String> boundVariables, String newLetOrForLoopVarName){
         String prefix = newLetOrForLoopVarName == null ? "" : newLetOrForLoopVarName + ".";

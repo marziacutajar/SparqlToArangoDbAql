@@ -89,7 +89,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             limitOp = new com.aql.algebra.operators.OpProject(limitOp, new ExprVar(forLoopVarGenerator.getCurrent()), false);
 
         createdAqlNodes.add(limitOp);
-        SetSparqlVariablesByOp(opSlice.hashCode(), boundVars);
+        SetSparqlVariablesByOp(opSlice, boundVars);
     }
 
     @Override
@@ -126,7 +126,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         OpSort aqlSort = new OpSort(orderSubOp, aqlSortConds);
         createdAqlNodes.add(aqlSort);
-        SetSparqlVariablesByOp(opOrder.hashCode(), boundVars);
+        SetSparqlVariablesByOp(opOrder, boundVars);
     }
 
     @Override
@@ -197,7 +197,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         if(joinToValuesTable){
             //add new filter conditions to the current op according to the VALUES table
             opToJoin1 = new com.aql.algebra.operators.OpFilter(RewritingUtils.ProcessBindingsTableJoin(opTable.getTable(), boundVariablesInOp1ToJoin), opToJoin1);
-            SetSparqlVariablesByOp(opJoin.hashCode(), boundVariablesInOp1ToJoin);
+            SetSparqlVariablesByOp(opJoin, boundVariablesInOp1ToJoin);
             createdAqlNodes.add(opToJoin1);
         }
         else{
@@ -211,8 +211,8 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
             //add used vars in both the graph patterns being joined to sparqlVariablesByOp
             //since by joining we will now have all the variables in this scope
-            AddSparqlVariablesByOp(opJoin.hashCode(), boundVariablesInOp1ToJoin);
-            AddSparqlVariablesByOp(opJoin.hashCode(), boundVariablesInOp2ToJoin);
+            AddSparqlVariablesByOp(opJoin, boundVariablesInOp1ToJoin);
+            AddSparqlVariablesByOp(opJoin, boundVariablesInOp2ToJoin);
             //use list of common variables between the graph patterns that must be joined to add the joining filter conditions
             Set<String> commonVars = MapUtils.GetCommonMapKeys(boundVariablesInOp1ToJoin, boundVariablesInOp2ToJoin);
 
@@ -239,7 +239,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         }
 
         createdAqlNodes.add(new com.aql.algebra.operators.OpFilter(filterConds, currOp));
-        SetSparqlVariablesByOp(opFilter.hashCode(), boundVars);
+        SetSparqlVariablesByOp(opFilter, boundVars);
     }
 
     @Override
@@ -290,7 +290,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         newOp = AddNewAssignmentAndLoop((Op)newOp, boundVars);
         createdAqlNodes.add(newOp);
         //add bound vars to map
-        SetSparqlVariablesByOp(opLeftJoin.hashCode(), boundVars);
+        SetSparqlVariablesByOp(opLeftJoin, boundVars);
     }
 
     @Override
@@ -322,7 +322,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //union the results of both sides and assign the result to another variable + add a new loop over this latest variable
         //as we always need to have at least one node in createdAqlNodes
         createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(com.aql.algebra.expressions.Var.alloc(leftAssignVar), com.aql.algebra.expressions.Var.alloc(rightAssignVar)), allBoundVars));
-        AddSparqlVariablesByOp(opUnion.hashCode(), allBoundVars);
+        AddSparqlVariablesByOp(opUnion, allBoundVars);
     }
 
     @Override
@@ -349,7 +349,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         //otherwise all the data on the left side is retained
         if(commonVars.size() == 0){
             createdAqlNodes.add(leftOp);
-            AddSparqlVariablesByOp(opMinus.hashCode(), leftBoundVars);
+            AddSparqlVariablesByOp(opMinus, leftBoundVars);
             return;
         }
 
@@ -367,7 +367,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         leftOp = new OpNest(leftOp, new AssignedResource(assignmentVarGenerator.getNew(), (Op)rightOp));
         leftOp = new com.aql.algebra.operators.OpFilter(new Expr_Equals(new ExprVar(assignmentVarGenerator.getCurrent()), new Const_Number(0)), leftOp);
         createdAqlNodes.add(leftOp);
-        AddSparqlVariablesByOp(opMinus.hashCode(), leftBoundVars);
+        AddSparqlVariablesByOp(opMinus, leftBoundVars);
     }
 
     @Override
@@ -377,7 +377,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         VarExprList varExprList = opExtend.getVarExprList();
 
-        Map<String, String> prevBoundVars = GetSparqlVariablesByOp(opExtend.getSubOp().hashCode());
+        Map<String, String> prevBoundVars = GetSparqlVariablesByOp(opExtend.getSubOp());
 
         //nest an OpSequence instead of adding lots of nests
         OpSequence assignments = new OpSequence();
@@ -389,35 +389,31 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         createdAqlNodes.add(currOp);
 
-        AddSparqlVariablesByOp(opExtend.hashCode(), CreateBoundVarsMap(varExprList.getVars()));
-        AddSparqlVariablesByOp(opExtend.hashCode(), prevBoundVars);
+        AddSparqlVariablesByOp(opExtend, CreateBoundVarsMap(varExprList.getVars()));
+        AddSparqlVariablesByOp(opExtend, prevBoundVars);
     }
 
     /**
      * Add map of bound SPARQL to AQL variables in the scope of a particular SPARQL operator
-     * @param opHashCode hashcode of SPARQL operator
+     * @param op SPARQL operator
      * @param variables map of bound SPARQL to AQL variables
      */
-    protected void AddSparqlVariablesByOp(Integer opHashCode, Map<String, String> variables){
-        Map<String, String> currUsedVars = GetSparqlVariablesByOp(opHashCode);
+    protected void AddSparqlVariablesByOp(org.apache.jena.sparql.algebra.Op op, Map<String, String> variables){
+        Map<String, String> currUsedVars = GetSparqlVariablesByOp(op);
         if(currUsedVars == null || currUsedVars.size() == 0) {
-            boundSparqlVariablesByOp.put(opHashCode, variables);
+            boundSparqlVariablesByOp.put(op.hashCode(), variables);
         }
         else {
             MapUtils.MergeMapsKeepFirstDuplicateKeyValue(currUsedVars, variables);
         }
     }
 
-    protected void SetSparqlVariablesByOp(Integer opHashCode, Map<String, String> variables){
-        boundSparqlVariablesByOp.put(opHashCode, variables);
+    protected void SetSparqlVariablesByOp(org.apache.jena.sparql.algebra.Op op, Map<String, String> variables){
+        boundSparqlVariablesByOp.put(op.hashCode(), variables);
     }
 
-    protected Map<String, String> GetSparqlVariablesByOp(org.apache.jena.sparql.algebra.Op sparqlOp){
-        return GetSparqlVariablesByOp(sparqlOp.hashCode());
-    }
-
-    protected Map<String, String> GetSparqlVariablesByOp(Integer opHashCode){
-        Map<String, String> currUsedVars = boundSparqlVariablesByOp.get(opHashCode);
+    protected Map<String, String> GetSparqlVariablesByOp(org.apache.jena.sparql.algebra.Op op){
+        Map<String, String> currUsedVars = boundSparqlVariablesByOp.get(op.hashCode());
         if(currUsedVars == null)
             return new HashMap<>();
 

@@ -1,6 +1,8 @@
 package com.sparql_to_aql.utils;
 
 import com.aql.algebra.expressions.constants.Const_Bool;
+import com.aql.algebra.expressions.constants.Const_Number;
+import com.aql.algebra.expressions.constants.Const_Object;
 import com.aql.algebra.expressions.constants.Const_String;
 import com.aql.algebra.expressions.functions.Expr_Equals;
 import com.aql.algebra.expressions.functions.Expr_LogicalAnd;
@@ -14,7 +16,10 @@ import com.sparql_to_aql.constants.TransformationModel;
 import com.sparql_to_aql.constants.arangodb.AqlOperators;
 import org.apache.jena.datatypes.RDFDatatype;
 import org.apache.jena.datatypes.xsd.impl.RDFLangString;
+import org.apache.jena.datatypes.xsd.impl.XSDBaseNumericType;
 import org.apache.jena.graph.Node;
+import org.apache.jena.rdf.model.ModelGraphInterface;
+import org.apache.jena.rdf.model.impl.ModelCom;
 import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.algebra.walker.Walker;
 import org.apache.jena.sparql.core.Var;
@@ -169,7 +174,7 @@ public class RewritingUtils {
                 }
             }
             else {
-                //TODO consider whether the binding is to a literal, or uri.. if literal what data type it has, etc...
+                //TODO consider whether the binding is to a literal, or uri.. if literal what data type it has, etc... this won't work
                 currExpr = new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(boundVars.get(var.getName()))), new Const_String(value.toString()));
             }
 
@@ -272,10 +277,40 @@ public class RewritingUtils {
         Set<String> commonVars = MapUtils.GetCommonMapKeys(leftBoundVars, rightBoundVars);
         com.aql.algebra.expressions.ExprList filtersExprs = new com.aql.algebra.expressions.ExprList();
         for (String commonVar: commonVars){
+            //TODO what about making sure both the type and the value + literal data is equal..? this is relevant in the graph approach
             filtersExprs.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(leftBoundVars.get(commonVar)), com.aql.algebra.expressions.Var.alloc(rightBoundVars.get(commonVar))));
         }
 
         return filtersExprs;
+    }
+
+    public static Const_Object ValuesRdfNodeToArangoObject(Node node){
+        //consider type of value, and create subproperties TYPE, VALUE, LANG, DATATYPE as necessary...
+        //the logic is already in the RDF-TO-ArangoDB converter..
+        Map<String, com.aql.algebra.expressions.Expr> objectProperties = new HashMap<>();
+
+        if(node.isURI()){
+            objectProperties.put(ArangoAttributes.TYPE, new Const_String(RdfObjectTypes.IRI));
+            objectProperties.put(ArangoAttributes.VALUE, new Const_String(node.getURI()));
+        }
+        else if(node.isLiteral()){
+            objectProperties.put(ArangoAttributes.TYPE, new Const_String(RdfObjectTypes.LITERAL));
+            objectProperties.put(ArangoAttributes.LITERAL_DATA_TYPE, new Const_String(node.getLiteralDatatypeURI()));
+
+            RDFDatatype literalType = node.getLiteralDatatype();
+            Object literalValue = node.getLiteralValue();
+
+            if(literalType instanceof XSDBaseNumericType)
+                objectProperties.put(ArangoAttributes.VALUE, new Const_Number(Double.valueOf(literalValue.toString())));
+            else
+                objectProperties.put(ArangoAttributes.VALUE, new Const_String(literalValue.toString()));
+
+            if (literalType instanceof RDFLangString){
+                objectProperties.put(ArangoAttributes.LITERAL_LANGUAGE,  new Const_String(node.getLiteralLanguage()));
+            }
+        }
+
+        return new Const_Object(objectProperties);
     }
 
 }

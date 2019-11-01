@@ -1,12 +1,16 @@
 package com.sparql_to_aql;
 
 import com.aql.algebra.AqlQueryNode;
+import com.aql.algebra.expressions.Constant;
 import com.aql.algebra.expressions.ExprVar;
 import com.aql.algebra.expressions.constants.Const_Object;
 import com.aql.algebra.operators.*;
 import com.aql.algebra.operators.OpSequence;
 import com.aql.algebra.resources.AssignedResource;
 import com.aql.algebra.resources.IterationResource;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.entities.algebra.OpDistinctProject;
 import com.aql.algebra.expressions.ExprList;
@@ -18,14 +22,18 @@ import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.MapUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
 import com.sparql_to_aql.utils.VariableGenerator;
+import org.apache.jena.atlas.json.JsonArray;
+import org.apache.jena.graph.Node;
 import org.apache.jena.query.Query;
 import org.apache.jena.query.SortCondition;
+import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.algebra.op.*;
 import org.apache.jena.sparql.algebra.op.OpFilter;
 import org.apache.jena.sparql.algebra.op.OpJoin;
 import org.apache.jena.sparql.algebra.op.OpProject;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.core.VarExprList;
+import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.expr.Expr;
 import java.util.*;
 
@@ -214,8 +222,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             AddSparqlVariablesByOp(opJoin, boundVariablesInOp1ToJoin);
             AddSparqlVariablesByOp(opJoin, boundVariablesInOp2ToJoin);
             //use list of common variables between the graph patterns that must be joined to add the joining filter conditions
-            Set<String> commonVars = MapUtils.GetCommonMapKeys(boundVariablesInOp1ToJoin, boundVariablesInOp2ToJoin);
-
             ExprList filterExprs = RewritingUtils.GetFiltersOnCommonVars(boundVariablesInOp1ToJoin, boundVariablesInOp2ToJoin);
             if(filterExprs.size() > 0) {
                 opToJoin2 = new com.aql.algebra.operators.OpFilter(filterExprs, opToJoin2);
@@ -393,6 +399,36 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         AddSparqlVariablesByOp(opExtend, prevBoundVars);
     }
 
+    @Override
+    public void visit(OpTable opTable){
+        //process table row by row
+        Table solutionSequences = opTable.getTable();
+        List<Var> vars = solutionSequences.getVars();
+        List<Constant> listOfAqlObjects = new ArrayList<>();
+
+        //create a JSON object for each possible solution sequence
+        for (Iterator<Binding> i = solutionSequences.rows(); i.hasNext();){
+            Map<String, com.aql.algebra.expressions.Expr> objectProperties = new HashMap<>();
+            Binding b = i.next();
+            for(Var var : vars){
+                Node value = b.get(var);
+                //TODO if null consider just adding Const_Null as value of object property???
+                if(value == null)
+                    continue;
+
+                objectProperties.put(var.getVarName(), RewritingUtils.ValuesRdfNodeToArangoObject(value));
+            }
+
+            listOfAqlObjects.add(new Const_Object(objectProperties));
+        }
+
+        Const_Array array = new Const_Array(listOfAqlObjects.toArray(new Constant[listOfAqlObjects.size()]));
+        Map<String, String> boundVars = CreateBoundVarsMap(vars);
+        AqlQueryNode forLoop = AddNewAssignmentAndLoop(array, boundVars);
+        createdAqlNodes.add(forLoop);
+        AddSparqlVariablesByOp(opTable, boundVars);
+    }
+
     /**
      * Add map of bound SPARQL to AQL variables in the scope of a particular SPARQL operator
      * @param op SPARQL operator
@@ -420,7 +456,13 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         return currUsedVars;
     }
 
-    //TODO add comments for below methods
+    /**
+     * This method takes a list of graphs specified in FROM clauses OR a list of graphs specified in FROM NAMED clauses
+     * and adds filters on the current for loop to make sure only triples in these graphs are considered
+     * @param graphNames list of graph uris
+     * @param forLoopVarName AQL variable name of current forloop
+     * @param filterConditions current list of filter conditions in the for loop
+     */
     protected void AddGraphFilters(List<String> graphNames, String forLoopVarName, ExprList filterConditions){
         com.aql.algebra.expressions.Expr filterExpr = null;
 

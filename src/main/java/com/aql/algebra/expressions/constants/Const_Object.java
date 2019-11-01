@@ -32,7 +32,7 @@ public class Const_Object extends Constant {
         while (it.hasNext()) {
             Map.Entry<String, Expr> pair = it.next();
             val += pair.getKey() + ": ";
-            pair.getValue().toString();
+            val += pair.getValue().toString();
             if(it.hasNext()){
                 val += ", ";
             }

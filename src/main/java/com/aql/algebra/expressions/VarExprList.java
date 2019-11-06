@@ -70,7 +70,10 @@ public class VarExprList extends Expr {
 
     public void add(Var var)
     {
-        // TODO decide whether duplicate variables should be allowed.
+        //do not allow adding duplicates
+        if(vars.contains(var))
+            throw new IllegalArgumentException("Variable already in list.");
+
         vars.add(var);
     }
 

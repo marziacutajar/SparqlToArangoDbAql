@@ -358,10 +358,9 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             return;
         }
 
-        //TODO do we really need an iteration resource or can a forloop with filters etc. attached still be fine?
-        // consider adding a method for the case where the above is enough and use that instead ie. as long as op isn't a project, do nothing, else add that iteration resource
-        leftOp = EnsureIterationResource(leftOp, leftBoundVars);
-        rightOp = EnsureIterationResource(rightOp, rightBoundVars);
+        //a forloop with filters etc. attached is still fine, so as long as op isn't a project, do nothing, else add that iteration resource
+        leftOp = EnsureIterationResource(leftOp, leftBoundVars, true);
+        rightOp = EnsureIterationResource(rightOp, rightBoundVars, true);
 
         ExprList filtersExprs = GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
 

@@ -2,11 +2,13 @@ package com.sparql_to_aql;
 
 import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.expressions.ExprList;
+import com.aql.algebra.expressions.ExprVar;
 import com.aql.algebra.operators.*;
 import com.aql.algebra.operators.OpSequence;
 import com.aql.algebra.resources.GraphIterationResource;
 import com.aql.algebra.resources.IterationResource;
 import com.sparql_to_aql.constants.ArangoAttributes;
+import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.entities.algebra.OpGraphBGP;
 import com.sparql_to_aql.utils.AqlUtils;
@@ -16,10 +18,10 @@ import org.apache.jena.graph.Triple;
 import org.apache.jena.sparql.algebra.op.*;
 import java.util.*;
 
-public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor {
+public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor {
 
-    public ArqToAqlAlgebraVisitor_GraphVersion(List<String> defaultGraphNames, List<String> namedGraphs){
-        super(defaultGraphNames, namedGraphs);
+    public ArqToAqlAlgebraVisitor_GraphApproach(List<String> defaultGraphNames, List<String> namedGraphs){
+        super(defaultGraphNames, namedGraphs, ArangoDataModel.G);
         this.defaultGraphNames = defaultGraphNames;
         this.namedGraphNames = namedGraphs;
         this._aqlAlgebraQueryExpressionTree = new OpSequence();
@@ -49,7 +51,7 @@ public class ArqToAqlAlgebraVisitor_GraphVersion extends ArqToAqlAlgebraVisitor 
             //if the subject of the triple isn't bound already - we need an extra for loop
             if(subject.isURI() || (subject.isVariable() && !usedVars.containsKey(subject.getName()))){
                 String forloopVar = forLoopVarGenerator.getNew();
-                AqlQueryNode new_forloop = new IterationResource(forloopVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.GraphModel.rdfResourcesCollectionName));
+                AqlQueryNode new_forloop = new IterationResource(forloopVar, new ExprVar(ArangoDatabaseSettings.GraphModel.rdfResourcesCollectionName));
                 RewritingUtils.ProcessTripleNode(triple.getSubject(), forloopVar, subjectFilterConditions, usedVars, false);
                 if(subjectFilterConditions.size() > 0){
                     new_forloop = new com.aql.algebra.operators.OpFilter(subjectFilterConditions, new_forloop);

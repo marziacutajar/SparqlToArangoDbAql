@@ -62,7 +62,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
         out.print(forloop.getIterationVar().getVarName());
         out.print(" ");
         Expr dataArrayExpr = forloop.getDataArrayExpr();
-        if(!(dataArrayExpr instanceof Var)) {
+        if(!(dataArrayExpr instanceof ExprVar)) {
             useBrackets = true;
             out.print("(");
         }

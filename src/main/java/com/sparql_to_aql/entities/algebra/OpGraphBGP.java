@@ -17,5 +17,7 @@ public class OpGraphBGP extends OpBGP {
     public Node getGraphNode() { return graphNode; }
 
     @Override
-    public String getName() { return "graph_bgp"; }
+    public String getName() {
+        return "graph_bgp " + graphNode.toString();
+    }
 }

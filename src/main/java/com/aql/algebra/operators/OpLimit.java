@@ -42,15 +42,5 @@ public class OpLimit extends OpModifier
     public int hashCode()
     {
         return getSubOp().hashCode() ^ (int)(start&0xFFFFFFFF) ^ (int)(length&0xFFFFFFFF);
-    }
-
-    @Override
-    public boolean equalTo(Op other, NodeIsomorphismMap labelMap)
-    {
-        if ( ! (other instanceof OpSlice) ) return false;
-        OpSlice opSlice = (OpSlice)other;
-        if ( opSlice.start != start || opSlice.length != length )
-            return false;
-        return getSubOp().equalTo(opSlice.getSubOp(), labelMap);
     }*/
 }

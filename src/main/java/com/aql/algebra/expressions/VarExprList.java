@@ -3,6 +3,8 @@ package com.aql.algebra.expressions;
 import com.aql.algebra.ExprVisitor;
 
 import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class VarExprList extends Expr {
     private List<Var> vars;
@@ -39,62 +41,36 @@ public class VarExprList extends Expr {
      *  Not called when there is no expression, just a variable.
      *  Not order preserving.
      */
-    /*public void forEachExpr(BiConsumer<Var, Expr> action) {
+    public void forEachExpr(BiConsumer<Var, Expr> action) {
         exprs.forEach(action);
-    }*/
+    }
 
     /** Call the action for each variable, in order.
      *  The expression may be null.
      *  Not called when there is no expression, just a variable.
      */
-    /*public void forEachVarExpr(BiConsumer<Var, Expr> action) {
-        //*  See {@link #forEach}
+    public void forEachVarExpr(BiConsumer<Var, Expr> action) {
         getVars().forEach((v) -> {
-            // Maybe null.
             Expr e = exprs.get(v);
             action.accept(v, e);
         });
-    }*/
+    }
 
     /** Call the action for each variable, in order. */
-    /*public void forEachVar(Consumer<Var> action) {
+    public void forEachVar(Consumer<Var> action) {
         getVars().forEach((v) -> {
             action.accept(v);
         });
-    }*/
+    }
 
     public boolean contains(Var var) { return vars.contains(var); }
     public boolean hasExpr(Var var) { return exprs.containsKey(var); }
 
     public Expr getExpr(Var var) { return exprs.get(var); }
 
-    // Or Binding.get(var, NamedExprList)
-    /*public Node get(Var var, Binding binding, FunctionEnv funcEnv)
-    {
-        Expr expr = exprs.get(var);
-        if ( expr == null )
-            return binding.get(var);
-
-        try {
-            NodeValue nv = expr.eval(binding, funcEnv);
-            if ( nv == null )
-                return null;
-            return nv.asNode();
-        } catch (ExprEvalException ex)
-        //{ Log.warn(this, "Eval failure "+expr+": "+ex.getMessage()); }
-        { }
-        return null;
-    }*/
-
     public void add(Var var)
     {
-        // Checking here controls whether duplicate variables are allowed.
-        // Duplicates with expressions are not allowed (add(Var, Expr))
-        // See ARQ.allowDuplicateSelectColumns
-
-        // Every should work either way round if this is enabled.
-        // Checking is done in Query for adding result vars, and group vars.
-        // if ( vars.contains(var) )
+        // TODO decide whether duplicate variables should be allowed.
         vars.add(var);
     }
 

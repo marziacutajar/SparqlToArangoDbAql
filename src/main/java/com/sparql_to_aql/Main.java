@@ -8,6 +8,7 @@ import com.arangodb.entity.BaseDocument;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.RdfObjectTypes;
+import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpGraphTransformer;
@@ -20,7 +21,6 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
 import org.apache.jena.sparql.sse.SSE;
-
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -32,11 +32,6 @@ import java.util.List;
 import java.util.Map;
 
 public class Main {
-
-    public enum ARANGODATAMODEL
-    {
-        D, G
-    }
 
     private static final int queryRuns = 15;
 
@@ -58,12 +53,13 @@ public class Main {
             CommandLine line = parser.parse(options, args);
 
             System.out.println("Reading SPARQL query from file...");
+            //TODO consider changing option f to accept more than one file path so we can translate, run, and measure the running time of all the queries with one call
             String filePath = line.getOptionValue("f");
             String fileName = FilenameUtils.removeExtension(new File(filePath).getName());
 
             String sparqlQuery = new String(Files.readAllBytes(Paths.get(filePath)));
 
-            ARANGODATAMODEL data_model = ARANGODATAMODEL.valueOf(line.getOptionValue("m"));
+            ArangoDataModel data_model = ArangoDataModel.valueOf(line.getOptionValue("m"));
             //TODO below QueryFactory.create part is very slow unless it's warmed up! make sure to think about this when measuring performance time
             Query query = QueryFactory.create(sparqlQuery);
 
@@ -111,10 +107,10 @@ public class Main {
 
             switch (data_model){
                 case D:
-                    queryExpressionTranslator = new ArqToAqlAlgebraVisitor_DocVersion(defaultGraphUris, namedGraphs);
+                    queryExpressionTranslator = new ArqToAqlAlgebraVisitor_BasicApproach(defaultGraphUris, namedGraphs);
                     break;
                 case G:
-                    queryExpressionTranslator = new ArqToAqlAlgebraVisitor_GraphVersion(defaultGraphUris, namedGraphs);
+                    queryExpressionTranslator = new ArqToAqlAlgebraVisitor_GraphApproach(defaultGraphUris, namedGraphs);
                     break;
                 default: throw new RuntimeException("Unsupported ArangoDB data model");
             }
@@ -183,6 +179,7 @@ public class Main {
                         //get value and format it if necessary (quoted if string, just value if otherwise), if it has lang put @lang as well
                         switch (type){
                             case RdfObjectTypes.IRI:
+                                //TODO stop using SparqlUtils.formatIri.. IRIs are only surrounded by square brackets in TURTLE
                                 formattedValue = SparqlUtils.formatIri(values.get(ArangoAttributes.VALUE).toString());
                                 break;
                             case RdfObjectTypes.LITERAL:

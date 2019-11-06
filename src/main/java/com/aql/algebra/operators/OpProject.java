@@ -50,14 +50,4 @@ public class OpProject extends OpModifier {
     {
         return exprs.hashCode() ^ getSubOp().hashCode();
     }*/
-
-    /*@Override
-    public boolean equalTo(Op other, NodeIsomorphismMap labelMap)
-    {
-        if ( ! (other instanceof OpProject) ) return false;
-        OpProject opProject = (OpProject)other;
-        if ( ! Objects.equals(vars, opProject.vars ) )
-            return false;
-        return getSubOp().equalTo(opProject.getSubOp(), labelMap);
-    }*/
 }

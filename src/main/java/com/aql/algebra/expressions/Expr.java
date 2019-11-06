@@ -22,6 +22,5 @@ public abstract class Expr {
     public boolean isFunction()         { return false; }
     public ExprFunction getFunction()   { return null; }
 
-    //public String toString()            { return WriterExpr.asString(this); }
     public void visit(ExprVisitor visitor) {  }
 }

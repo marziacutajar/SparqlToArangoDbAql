@@ -13,5 +13,5 @@ public interface ExprVisitor {
     void visit(ExprVar ev) ;
     void visit(VarExprList ve) ;
     //void visit(ExprAggregator eAgg) ;
-    void visit(Var v) ;
+    //void visit(Var v) ;
 }

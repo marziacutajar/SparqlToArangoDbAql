@@ -1,8 +1,6 @@
 package com.aql.algebra.expressions;
 
-import com.aql.algebra.ExprVisitor;
-
-public class Var extends Expr
+public class Var
 {
     final protected String name;
 
@@ -10,34 +8,23 @@ public class Var extends Expr
         return new Var(varName);
     }
 
-    public static Var alloc(Var v) {
-        return v;
+    public static Var alloc(ExprVar nv) {
+        return new Var(nv);
     }
-
-    public static Var alloc(ExprVar nv)         { return new Var(nv); }
-
-    // Precalulated the hash code because hashCode() is used so heavily with Var's
-    //private final int hashCodeValue;
 
     private Var(String varName){
         name = varName;
-        //hashCodeValue = super.hashCode();
     }
 
     private Var(ExprVar v)           { this(v.getVarName()); }
 
-    @Override
     public boolean isVariable() {
         return true;
     }
 
-    @Override
     public String getVarName() {
         return name;
     }
-
-    //@Override
-    //public final int hashCode() { return hashCodeValue; }
 
     @Override
     public final boolean equals(Object other) {
@@ -46,25 +33,11 @@ public class Var extends Expr
         return super.equals(other);
     }
 
-    // -------
-
-    public static String canonical(String x) {
-        if ( x.startsWith("?") )
-            return x.substring(1);
-        if ( x.startsWith("$") )
-            return x.substring(1);
-        return x;
-    }
-
     public static boolean isVariable(Expr expr) {
-        if ( expr instanceof Var )
+        if (expr instanceof ExprVar)
             return true;
-        if ( expr != null && expr.isVariable() )
-            throw new RuntimeException("Invalid variable found");
+
         return false;
     }
-
-    @Override
-    public void visit(ExprVisitor visitor) { visitor.visit(this); }
 }
 

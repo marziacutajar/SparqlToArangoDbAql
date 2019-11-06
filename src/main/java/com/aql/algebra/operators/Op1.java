@@ -11,8 +11,9 @@ public abstract class Op1 implements Op {
     }
 
     public AqlQueryNode getChild() { return child; }
-    //public void setSubOp(Op op) { sub = op; }
 
+    //public void setSubOp(Op op) { child = op; }
     //public abstract Op apply(Transform transform, Op subOp);
+
     public abstract Op1 copy(AqlQueryNode child);
 }

@@ -2,12 +2,14 @@ package com.sparql_to_aql;
 
 import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.expressions.ExprList;
+import com.aql.algebra.expressions.ExprVar;
 import com.aql.algebra.expressions.constants.Const_String;
 import com.aql.algebra.expressions.functions.*;
 import com.aql.algebra.operators.*;
 import com.aql.algebra.operators.OpSequence;
 import com.aql.algebra.resources.IterationResource;
 import com.sparql_to_aql.constants.ArangoAttributes;
+import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.NodeRole;
 import com.sparql_to_aql.entities.algebra.OpGraphBGP;
@@ -19,10 +21,10 @@ import org.apache.jena.sparql.algebra.op.*;
 
 import java.util.*;
 
-public class ArqToAqlAlgebraVisitor_DocVersion extends ArqToAqlAlgebraVisitor
+public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
 {
-    public ArqToAqlAlgebraVisitor_DocVersion(List<String> defaultGraphNames, List<String> namedGraphs){
-        super(defaultGraphNames, namedGraphs);
+    public ArqToAqlAlgebraVisitor_BasicApproach(List<String> defaultGraphNames, List<String> namedGraphs){
+        super(defaultGraphNames, namedGraphs, ArangoDataModel.D);
         this.defaultGraphNames = defaultGraphNames;
         this.namedGraphNames = namedGraphs;
         this._aqlAlgebraQueryExpressionTree = new OpSequence();
@@ -50,7 +52,7 @@ public class ArqToAqlAlgebraVisitor_DocVersion extends ArqToAqlAlgebraVisitor
             ExprList filterConditions = new ExprList();
 
             String iterationVar = forLoopVarGenerator.getNew();
-            AqlQueryNode aqlNode = new IterationResource(iterationVar, com.aql.algebra.expressions.Var.alloc(ArangoDatabaseSettings.DocumentModel.rdfCollectionName));
+            AqlQueryNode aqlNode = new IterationResource(iterationVar, new ExprVar(ArangoDatabaseSettings.DocumentModel.rdfCollectionName));
 
             //if this is the first for loop and there are named graphs specified, add filters for those named graphs
             if(firstTripleBeingProcessed){
@@ -65,7 +67,7 @@ public class ArqToAqlAlgebraVisitor_DocVersion extends ArqToAqlAlgebraVisitor
                     }
                     else{
                         //add filter with specific named graph
-                        filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(outerGraphVarToMatch), new Const_String(graphNode.getURI())));
+                        filterConditions.add(new Expr_Equals(new ExprVar(outerGraphVarToMatch), new Const_String(graphNode.getURI())));
                     }
                 }
                 else{
@@ -77,7 +79,7 @@ public class ArqToAqlAlgebraVisitor_DocVersion extends ArqToAqlAlgebraVisitor
             }
             else{
                 //make sure that graph name for consecutive triples matches the one of the first triple
-                filterConditions.add(new Expr_Equals(com.aql.algebra.expressions.Var.alloc(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE)), com.aql.algebra.expressions.Var.alloc(outerGraphVarToMatch)));
+                filterConditions.add(new Expr_Equals(new ExprVar(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE)), new ExprVar(outerGraphVarToMatch)));
             }
 
             RewritingUtils.ProcessTripleNode(triple.getSubject(), NodeRole.SUBJECT, iterationVar, filterConditions, usedVars);

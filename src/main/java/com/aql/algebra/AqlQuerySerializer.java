@@ -42,7 +42,7 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
         indent();
         out.print("FOR " + forloop.getIterationVar().getVarName() + " IN ");
         Expr dataArrayExpr = forloop.getDataArrayExpr();
-        if(!(dataArrayExpr instanceof Var)) {
+        if(!(dataArrayExpr instanceof ExprVar)) {
             useBrackets = true;
             out.print("(");
         }

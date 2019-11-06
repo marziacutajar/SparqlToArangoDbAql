@@ -20,7 +20,6 @@ public abstract class OpN implements Op {
 
     public int size()                   { return elements.size(); }
 
-
     @Override
     public int hashCode()               { return elements.hashCode(); }
 

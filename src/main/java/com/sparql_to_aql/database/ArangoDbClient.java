@@ -26,7 +26,7 @@ public class ArangoDbClient {
                     BaseDocument.class);
         }
         catch (final ArangoDBException e){
-            System.out.println(e.getErrorMessage());
+            //System.out.println(e.toString());
             throw new RuntimeException(e);
         }
     }

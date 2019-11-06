@@ -8,9 +8,12 @@ import com.aql.algebra.expressions.functions.Expr_Equals;
 import com.aql.algebra.expressions.functions.Expr_LogicalAnd;
 import com.aql.algebra.expressions.functions.Expr_LogicalOr;
 import com.aql.algebra.expressions.functions.Expr_ToString;
+import com.arangodb.ArangoCursor;
+import com.arangodb.entity.BaseDocument;
 import com.sparql_to_aql.RewritingExprVisitor;
 import com.sparql_to_aql.constants.*;
 import com.sparql_to_aql.constants.arangodb.AqlOperators;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.jena.datatypes.RDFDatatype;
 import org.apache.jena.datatypes.xsd.impl.RDFLangString;
 import org.apache.jena.datatypes.xsd.impl.XSDBaseNumericType;
@@ -23,6 +26,8 @@ import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.expr.*;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 
 public class RewritingUtils {
@@ -255,4 +260,62 @@ public class RewritingUtils {
         return new Const_Object(objectProperties);
     }
 
+    public static void printQueryResultsToFile(ArangoCursor<BaseDocument> results, String filePath)throws IOException {
+        FileWriter csvWriter = new FileWriter(filePath);
+        boolean firstRow = true;
+        while(results.hasNext()){
+            BaseDocument curr = results.next();
+            Map<String, Object> rowColumns = curr.getProperties();
+            if(firstRow){
+                firstRow = false;
+                for (String projectedVar: rowColumns.keySet()) {
+                    csvWriter.append(projectedVar + ",");
+                }
+                csvWriter.append("\r\n");
+            }
+
+            Iterator<Map.Entry<String, Object>> it = rowColumns.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, Object> pair = it.next();
+
+                if(pair.getValue() instanceof HashMap){
+                    Map<String, Object> values = ((HashMap) pair.getValue());
+                    String formattedValue = "";
+                    String type = values.get(ArangoAttributes.TYPE).toString();
+                    //get value and format it if necessary (quoted if string, just value if otherwise), if it has lang put @lang as well
+                    switch (type){
+                        case RdfObjectTypes.IRI:
+                            formattedValue = values.get(ArangoAttributes.VALUE).toString();
+                            break;
+                        case RdfObjectTypes.LITERAL:
+                            formattedValue = values.get(ArangoAttributes.VALUE).toString();
+                            if(values.get(ArangoAttributes.VALUE) instanceof String){
+                                if(values.get(ArangoAttributes.LITERAL_LANGUAGE) != null){
+                                    formattedValue = StringEscapeUtils.escapeCsv(AqlUtils.quoteString(formattedValue));
+                                    formattedValue += "@" + values.get(ArangoAttributes.LITERAL_LANGUAGE).toString();
+                                }
+                            }
+
+                            //String datatype = values.get(ArangoAttributes.LITERAL_DATA_TYPE).toString();
+                            break;
+                        default:
+                            throw new UnsupportedOperationException("Type not supported");
+                    }
+                    csvWriter.append(formattedValue + ",");
+                }
+                else{
+                    Object val = pair.getValue();
+                    if(val != null)
+                        csvWriter.append(pair.getValue().toString());
+
+                    csvWriter.append(",");
+                }
+            }
+
+            csvWriter.append("\r\n");
+        }
+
+        csvWriter.flush();
+        csvWriter.close();
+    }
 }

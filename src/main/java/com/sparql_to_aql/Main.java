@@ -13,12 +13,11 @@ import com.sparql_to_aql.entities.algebra.transformers.OpGraphTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpProjectOverSliceTransformer;
 import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
 import com.sparql_to_aql.utils.AqlUtils;
+import com.sparql_to_aql.utils.RewritingUtils;
 import org.apache.commons.cli.*;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
-import org.apache.jena.sparql.sse.SSE;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -26,7 +25,6 @@ import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
@@ -58,6 +56,9 @@ public class Main {
             String directoryName = "runtime_results/" + data_model.toString();
             new File(directoryName).mkdirs();
 
+            String resultDataDirectoryName = "query_results/" + data_model.toString();
+            new File(resultDataDirectoryName).mkdirs();
+
             String formattedDate = DATE_FORMAT.format(new Date());
             //add results of multiple queries to the same results file (one row for each query, make first column the query file name)
             FileWriter csvWriter = new FileWriter(directoryName + "/" + formattedDate + ".csv");
@@ -77,7 +78,7 @@ public class Main {
                     Query query = QueryFactory.create(sparqlQuery);
 
                     String aqlQuery = SparqlQueryToAqlQuery(query, data_model);
-                    //System.out.println(aqlQuery);
+                    System.out.println(aqlQuery);
 
                     ArangoDbClient arangoDbClient = new ArangoDbClient();
                     ArangoCursor<BaseDocument> results = null;
@@ -102,15 +103,16 @@ public class Main {
                     csvWriter.append("\r\n");
                     csvWriter.flush();
 
+                    String resultDataFileName = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + ".csv";
                     /*long averageRuntime = (sum / queryRuns);
                     System.out.println("Average query runtime: " + averageRuntime + "ms");*/
-                    AqlUtils.printQueryResultsAsSparql(results);
-                }
-                catch (IOException e) {
-                    System.out.println("File not found: " + filePath);
+                    RewritingUtils.printQueryResultsToFile(results, resultDataFileName);
                 }
                 catch (QueryException qe) {
                     System.out.println("Invalid SPARQL query. ");
+                }
+                catch (IOException e) {
+                    System.out.println(e);
                 }
                 catch(UnsupportedOperationException e){
                     System.out.println(e);

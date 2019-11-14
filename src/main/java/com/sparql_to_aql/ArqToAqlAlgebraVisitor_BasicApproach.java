@@ -12,6 +12,7 @@ import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.NodeRole;
+import com.sparql_to_aql.entities.BoundAqlVars;
 import com.sparql_to_aql.entities.algebra.OpGraphBGP;
 import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
@@ -41,7 +42,7 @@ public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
         }
 
         AqlQueryNode currAqlNode = null;
-        Map<String, String> usedVars = new HashMap<>();
+        Map<String, BoundAqlVars> usedVars = new HashMap<>();
         boolean firstTripleBeingProcessed = true;
 
         //using this variable, we will make sure the graph name of every triple matching the BGP is in the same graph
@@ -63,7 +64,7 @@ public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
                         AddGraphFilters(namedGraphNames, iterationVar, filterConditions);
 
                         //bind graph var
-                        usedVars.put(graphNode.getName(), AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME));
+                        usedVars.put(graphNode.getName(), new BoundAqlVars(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME)));
                     }
                     else{
                         //add filter with specific named graph

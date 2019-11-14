@@ -6,6 +6,8 @@ import com.aql.algebra.expressions.constants.Const_Number;
 import com.aql.algebra.expressions.constants.Const_String;
 import com.aql.algebra.expressions.functions.*;
 import com.sparql_to_aql.constants.ArangoAttributes;
+import com.sparql_to_aql.entities.BoundAqlVars;
+import com.sparql_to_aql.entities.BoundAqlVars;
 import com.sparql_to_aql.utils.AqlUtils;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.expr.*;
@@ -24,7 +26,7 @@ import java.util.Map;
 //Expr is just an interface and there are other classes that implement it and represent operators - refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/expr/Expr.html
 public class RewritingExprVisitor extends ExprVisitorBase {
 
-    Map<String, String> boundVariables;
+    Map<String, BoundAqlVars> boundVariables;
 
     private LinkedList<com.aql.algebra.expressions.Expr> createdAqlExprs = new LinkedList<>();
 
@@ -40,7 +42,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         return createdAqlExprs.get(0);
     }
 
-    public RewritingExprVisitor(Map<String, String> boundVariables){
+    public RewritingExprVisitor(Map<String, BoundAqlVars> boundVariables){
         this.boundVariables = boundVariables;
     }
 
@@ -54,7 +56,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     //handle function with one argument
     @Override
     public void visit(ExprFunction1 func){
-        //not a priority but possibly support ABS, CEILING, FLOOR, ROUND, STR_LOWER, STR_UPPER, STR_LENGTH
+        //TODO not a priority but possibly support ABS, CEILING, FLOOR, ROUND, STR_LOWER, STR_UPPER, STR_LENGTH
         // remember that for this we'd have to check the VALUE of the arangodb document
         if(func instanceof E_LogicalNot){
             createdAqlExprs.add(new Expr_LogicalNot(createdAqlExprs.removeLast()));
@@ -63,7 +65,10 @@ public class RewritingExprVisitor extends ExprVisitorBase {
             createdAqlExprs.add(new Expr_NotEquals(createdAqlExprs.removeLast(), new Const_Null()));
         }
         else if(func instanceof E_Lang){
-            createdAqlExprs.add(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(createdAqlExprs.removeLast().getVarName(), ArangoAttributes.LITERAL_LANGUAGE)));
+            createdAqlExprs.add(updateExprVar(createdAqlExprs.removeLast(), ArangoAttributes.LITERAL_LANGUAGE));
+        }
+        else if (func instanceof E_Str){
+            createdAqlExprs.add(new Expr_ToString(updateExprVar(createdAqlExprs.removeLast(), ArangoAttributes.VALUE)));
         }
         else{
             throw new UnsupportedOperationException("SPARQL expression not supported!");
@@ -76,45 +81,44 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         com.aql.algebra.expressions.Expr param2 = createdAqlExprs.removeLast();
         com.aql.algebra.expressions.Expr param1 = createdAqlExprs.removeLast();
 
+        com.aql.algebra.expressions.Expr param2_ExprVarWithValueSubAttr = updateExprVar(param2, ArangoAttributes.VALUE);
+        com.aql.algebra.expressions.Expr param1_ExprVarWithValueSubAttr = updateExprVar(param1, ArangoAttributes.VALUE);
+
         com.aql.algebra.expressions.Expr aqlExpr;
 
-        //if one of the args is a sparql variable but the other isn't, we need to compare the value attribute of the AQL object the var is bound to
-        if(func.getArg1() instanceof ExprVar && !(func.getArg2() instanceof ExprVar))
-            param1 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE));
-        else if (func.getArg2() instanceof ExprVar && !(func.getArg1() instanceof ExprVar))
-            param2 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE));
-
         if(func instanceof E_Add){
-            aqlExpr = new Expr_Add(param1, param2);
+            aqlExpr = new Expr_Add(param1_ExprVarWithValueSubAttr, param2_ExprVarWithValueSubAttr);
         }else if(func instanceof E_Divide){
-            aqlExpr = new Expr_Divide(param1, param2);
-        }else if(func instanceof E_Equals){
-            aqlExpr = new Expr_Equals(param1, param2);
+            aqlExpr = new Expr_Divide(param1_ExprVarWithValueSubAttr, param2_ExprVarWithValueSubAttr);
         }else if(func instanceof E_GreaterThan){
-            aqlExpr = new Expr_GreaterThan(param1, param2);
+            aqlExpr = new Expr_GreaterThan(param1_ExprVarWithValueSubAttr, param2_ExprVarWithValueSubAttr);
         }else if(func instanceof E_GreaterThanOrEqual){
-            aqlExpr = new Expr_GreaterThanOrEqual(param1, param2);
+            aqlExpr = new Expr_GreaterThanOrEqual(param1_ExprVarWithValueSubAttr, param2_ExprVarWithValueSubAttr);
         }else if(func instanceof E_LessThan){
-            aqlExpr = new Expr_LessThan(param1, param2);
+            aqlExpr = new Expr_LessThan(param1_ExprVarWithValueSubAttr, param2_ExprVarWithValueSubAttr);
         }else if(func instanceof E_LessThanOrEqual){
-            aqlExpr = new Expr_LessThanOrEqual(param1, param2);
+            aqlExpr = new Expr_LessThanOrEqual(param1_ExprVarWithValueSubAttr, param2_ExprVarWithValueSubAttr);
+        }else if(func instanceof E_Multiply){
+            aqlExpr = new Expr_Multiply(param1_ExprVarWithValueSubAttr, param2_ExprVarWithValueSubAttr);
+        }else if(func instanceof E_Subtract){
+            aqlExpr = new Expr_Subtract(param1_ExprVarWithValueSubAttr, param2_ExprVarWithValueSubAttr);
         }else if(func instanceof E_LogicalAnd){
             aqlExpr = new Expr_LogicalAnd(param1, param2);
         }else if(func instanceof E_LogicalOr){
             aqlExpr = new Expr_LogicalOr(param1, param2);
-        }else if(func instanceof E_Multiply){
-            aqlExpr = new Expr_Multiply(param1, param2);
+        }else if(func instanceof E_Equals){
+            //TODO equals would need to be handled differently for graph approach..?
+            aqlExpr = new Expr_Equals(param1, param2);
         }else if(func instanceof E_NotEquals){
+            //TODO notequals would need to be handled differently for graph approach..?
             aqlExpr = new Expr_NotEquals(param1, param2);
-        }else if(func instanceof E_Subtract){
-            aqlExpr = new Expr_Subtract(param1, param2);
         }
         else if(func instanceof E_LangMatches){
             if(func.getArg2().getConstant().getString().equals("*")){
                 aqlExpr = new Expr_NotEquals(param1, new Const_Null());
             }
             else{
-                //consider using Expr_Like function instead of Equals here.. since langMatches in SPARQL would would match, for example, "en-GB" even if the second parameter is "EN"
+                //consider using Expr_Like function instead of Equals here.. since langMatches in SPARQL would match, for example, "en-GB" even if the second parameter is "EN"
                 aqlExpr = new Expr_Equals(new Expr_Lower(param1), new Expr_Lower(param2));
             }
         }
@@ -168,7 +172,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
 
     @Override
     public void visit(ExprVar e){
-        createdAqlExprs.add(new com.aql.algebra.expressions.ExprVar(boundVariables.get(e.getVarName())));
+        createdAqlExprs.add(boundVariables.get(e.getVarName()).asExpr());
     }
 
     @Override
@@ -179,5 +183,12 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     @Override
     public void visit(ExprNone exprNone){
         throw new UnsupportedOperationException("SPARQL expression not supported!");
+    }
+
+    private com.aql.algebra.expressions.Expr updateExprVar(com.aql.algebra.expressions.Expr expr, String subAttribute){
+        if(expr instanceof com.aql.algebra.expressions.ExprVar)
+            return new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(expr.getVarName(), subAttribute));
+
+        return expr;
     }
 }

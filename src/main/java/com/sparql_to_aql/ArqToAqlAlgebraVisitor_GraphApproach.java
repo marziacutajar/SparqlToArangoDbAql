@@ -10,6 +10,7 @@ import com.aql.algebra.resources.IterationResource;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
+import com.sparql_to_aql.entities.BoundAqlVars;
 import com.sparql_to_aql.entities.algebra.OpGraphBGP;
 import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
@@ -38,7 +39,7 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
         }
 
         AqlQueryNode currAqlNode = null;
-        Map<String, String> usedVars = new HashMap<>();
+        Map<String, BoundAqlVars> usedVars = new HashMap<>();
         boolean firstTripleBeingProcessed = true;
 
         //using this variable, we will make sure the graph name of every triple matching the BGP is in the same graph
@@ -65,7 +66,7 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
                 startVertex = forloopVar;
             }
             else {
-                startVertex = usedVars.get(subject.getName());
+                startVertex = usedVars.get(subject.getName()).getFirstVarName();
             }
 
             //keep list of FILTER clauses per triple
@@ -74,6 +75,16 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
             String iterationEdgeVar = graphForLoopEdgeVarGenerator.getNew();
             String iterationPathVar = graphForLoopPathVarGenerator.getNew();
 
+            //TODO what we could do to match graphs is:
+            // Let ids = FOR e in edges
+            // FILTER e.g = graph_uri_here
+            // RETURN DISTINCT e._from
+            // to get the ids of all the docs in this graph
+            // then do
+            // FOR v in graph_vertices
+            // FILTER v._id IN ids
+            // To only consider vertices with edges on that graph ie. only triples in that named graph
+            // THIS SHOULD BE FASTER than looping over all docs in graph_vertices and then filtering the edges...
             //if this is the first for loop and there are named graphs specified, add filters for those named graphs
             //outerGraphVarToMatch = AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);
 

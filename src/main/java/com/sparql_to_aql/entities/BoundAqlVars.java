@@ -109,4 +109,8 @@ public class BoundAqlVars {
             v.updateCanBeNull(true);
         }
     }
+
+    public void removeAllVars(){
+        possibleAqlVars = new ArrayList<>();
+    }
 }

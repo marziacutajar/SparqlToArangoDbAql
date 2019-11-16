@@ -3,6 +3,7 @@ package com.aql.algebra.expressions.functions;
 import com.aql.algebra.expressions.Expr;
 import com.aql.algebra.expressions.constants.Const_Bool;
 
+//this is the LIKE function, not the LIKE keyword.. if we implement both, we must distinguish
 public class Expr_Like extends ExprFunctionN //2 or 3 params
 {
     private static final String functionName = "like";

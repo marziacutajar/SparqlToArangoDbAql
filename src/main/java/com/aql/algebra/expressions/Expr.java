@@ -1,6 +1,7 @@
 package com.aql.algebra.expressions;
 
 import com.aql.algebra.ExprVisitor;
+import com.aql.algebra.operators.Op;
 
 public abstract class Expr {
 
@@ -21,6 +22,9 @@ public abstract class Expr {
     public Constant getConstant()      { return null; }
     public boolean isFunction()         { return false; }
     public ExprFunction getFunction()   { return null; }
+
+    public boolean isSubquery()         { return false; }
+    public Op getSubquery()             { return null; }
 
     public void visit(ExprVisitor visitor) {  }
 }

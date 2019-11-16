@@ -14,6 +14,7 @@ import com.sparql_to_aql.entities.BoundAqlVars;
 import com.sparql_to_aql.entities.algebra.OpGraphBGP;
 import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
+import com.sparql_to_aql.utils.VariableGenerator;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.sparql.algebra.op.*;
@@ -23,9 +24,10 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
 
     public ArqToAqlAlgebraVisitor_GraphApproach(List<String> defaultGraphNames, List<String> namedGraphs){
         super(defaultGraphNames, namedGraphs, ArangoDataModel.G);
-        this.defaultGraphNames = defaultGraphNames;
-        this.namedGraphNames = namedGraphs;
-        this._aqlAlgebraQueryExpressionTree = new OpSequence();
+    }
+
+    public ArqToAqlAlgebraVisitor_GraphApproach(List<String> defaultGraphNames, List<String> namedGraphs, VariableGenerator forLoopVarGen, VariableGenerator assignmentVarGen, VariableGenerator graphVertexVarGen, VariableGenerator graphEdgeVarGen, VariableGenerator graphPathVarGen){
+        super(defaultGraphNames, namedGraphs, ArangoDataModel.G, forLoopVarGen, assignmentVarGen, graphVertexVarGen, graphEdgeVarGen, graphPathVarGen);
     }
 
     @Override

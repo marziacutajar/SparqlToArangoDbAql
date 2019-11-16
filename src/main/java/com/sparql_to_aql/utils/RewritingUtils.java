@@ -123,8 +123,8 @@ public class RewritingUtils {
      * @param boundVariables map of all bound SPARQL variables to AQL variables in the current scope
      * @return AQL expression
      */
-    public static com.aql.algebra.expressions.Expr ProcessExpr(Expr expr, Map<String, BoundAqlVars> boundVariables){
-        RewritingExprVisitor exprVisitor = new RewritingExprVisitor(boundVariables);
+    public static com.aql.algebra.expressions.Expr ProcessExpr(Expr expr, Map<String, BoundAqlVars> boundVariables, ArangoDataModel dataModel, VariableGenerator forLoopVarGen, VariableGenerator assignmentVarGen, VariableGenerator graphVertexVarGen, VariableGenerator graphEdgeVarGen, VariableGenerator graphPathVarGen){
+        RewritingExprVisitor exprVisitor = new RewritingExprVisitor(boundVariables, dataModel, forLoopVarGen, assignmentVarGen, graphVertexVarGen, graphEdgeVarGen, graphPathVarGen);
         Walker.walk(expr, exprVisitor);
 
         return exprVisitor.getFinalAqlExpr();
@@ -137,11 +137,18 @@ public class RewritingUtils {
      *                               If null, set the AQL variable name to match the SPARQL variable name
      * @return updated map of bound variables
      */
-    public static Map<String, BoundAqlVars> UpdateBoundVariablesMapping(Map<String, BoundAqlVars> boundVariables, String newLetOrForLoopVarName){
+    public static Map<String, BoundAqlVars> UpdateBoundVariablesMapping(Map<String, BoundAqlVars> boundVariables, String newLetOrForLoopVarName, boolean removeMultiValues){
         String prefix = newLetOrForLoopVarName == null ? "" : newLetOrForLoopVarName + ".";
         for (String sparqlVar : boundVariables.keySet()){
             //keep old value of canBeNull for each aql variable
-            boundVariables.get(sparqlVar).getVars().forEach(bv -> bv.updateBoundAqlVar(prefix + sparqlVar));
+            if(removeMultiValues) {
+                boolean canBeNull = boundVariables.get(sparqlVar).canBeNull();
+                boundVariables.get(sparqlVar).removeAllVars();
+                boundVariables.put(sparqlVar, new BoundAqlVars(prefix + sparqlVar, canBeNull));
+            }
+            else{
+                boundVariables.get(sparqlVar).getVars().forEach(bv -> bv.updateBoundAqlVar(prefix + sparqlVar));
+            }
         }
 
         return boundVariables;

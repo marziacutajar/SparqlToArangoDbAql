@@ -22,6 +22,8 @@ import org.apache.jena.sparql.expr.ExprFunction1;
 import org.apache.jena.sparql.expr.ExprFunction2;
 import org.apache.jena.sparql.expr.ExprFunction3;
 import org.apache.jena.sparql.expr.ExprFunctionN;
+
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -154,7 +156,18 @@ public class RewritingExprVisitor extends ExprVisitorBase {
 
     @Override
     public void visit(ExprFunctionN func){
-        throw new UnsupportedOperationException("SPARQL expression not supported!");
+        int numArgs = func.numArgs();
+        int pos = createdAqlExprs.size()-numArgs;
+        com.aql.algebra.expressions.ExprList aqlExprs = new com.aql.algebra.expressions.ExprList();
+        if(func instanceof E_StrConcat){
+            for(int i=0; i < numArgs; i++){
+                com.aql.algebra.expressions.Expr currParam = createdAqlExprs.remove(pos);
+                aqlExprs.add(updateExprVar(currParam, ArangoAttributes.VALUE));
+            }
+            createdAqlExprs.add(new Expr_Concat(aqlExprs));
+        }
+        else
+            throw new UnsupportedOperationException("SPARQL expression not supported!");
     }
 
     //TODO update comments below to explain what we're doing
@@ -170,6 +183,8 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     @Override
     public void visit(ExprFunctionOp func){
         //TODO we need the current active graph here...
+        //TODO cater for filter in (not) exists query.. we need to pass the boundVariables map to the new visitor.. or use the same visitor instead of creating a new one here..?
+        // or maybe combine RewritingExprVisitor and ArqToAqlAlgebraVisitor into one class... or just don't support inner filters
         ArqToAqlAlgebraVisitor subQueryTranslator;
         switch (dataModel){
             case D:

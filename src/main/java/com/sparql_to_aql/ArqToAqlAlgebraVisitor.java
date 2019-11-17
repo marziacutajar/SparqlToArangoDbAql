@@ -166,7 +166,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         List<Var> projectableVars = opProject.getVars();
         Map<String, BoundAqlVars> boundVars = GetSparqlVariablesByOp(opProject.getSubOp());
 
-        currOp = EnsureIterationResource(currOp, boundVars);
+        currOp = EnsureIterationResource(currOp, boundVars, true);
 
         if(opProject instanceof OpDistinctProject){
             useDistinct = true;
@@ -567,6 +567,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         return forLoop;
     }
 
+    //TODO consider just keeping one of the below methods.. I think we only need to add a forloop if the curr op is project anyway...
     protected AqlQueryNode EnsureIterationResource(AqlQueryNode node, Map<String, BoundAqlVars> boundVars){
         return EnsureIterationResource(node, boundVars, false);
     }

@@ -1,5 +1,6 @@
 package com.sparql_to_aql.utils;
 
+import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.expressions.constants.*;
 import com.aql.algebra.expressions.functions.*;
 import com.arangodb.ArangoCursor;
@@ -344,5 +345,12 @@ public class RewritingUtils {
 
         csvWriter.flush();
         csvWriter.close();
+    }
+
+    public static AqlQueryNode AddFilterConditionsIfPresent(AqlQueryNode aqlNode, com.aql.algebra.expressions.ExprList filterConditions){
+        if(filterConditions.size() > 0)
+            aqlNode = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);
+
+        return aqlNode;
     }
 }

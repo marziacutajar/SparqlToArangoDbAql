@@ -4,14 +4,12 @@ import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.expressions.ExprList;
 import com.aql.algebra.expressions.ExprVar;
 import com.aql.algebra.operators.*;
-import com.aql.algebra.operators.OpSequence;
 import com.aql.algebra.resources.GraphIterationResource;
 import com.aql.algebra.resources.IterationResource;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.entities.BoundAqlVars;
-import com.sparql_to_aql.entities.algebra.OpGraphBGP;
 import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
 import com.sparql_to_aql.utils.VariableGenerator;
@@ -32,14 +30,6 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
 
     @Override
     public void visit(OpBGP opBgp){
-        boolean bgpWithGraphNode = false;
-        Node graphNode = null;
-        if(opBgp instanceof OpGraphBGP){
-            bgpWithGraphNode = true;
-            OpGraphBGP graphBGP = (OpGraphBGP) opBgp;
-            graphNode = graphBGP.getGraphNode();
-        }
-
         AqlQueryNode currAqlNode = null;
         Map<String, BoundAqlVars> usedVars = new HashMap<>();
         boolean firstTripleBeingProcessed = true;
@@ -132,5 +122,10 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
         //add used vars in bgp to list
         SetSparqlVariablesByOp(opBgp, usedVars);
         createdAqlNodes.add(currAqlNode);
+    }
+
+    @Override
+    public void visit(OpQuadPattern opQuadPattern){
+        //TODO
     }
 }

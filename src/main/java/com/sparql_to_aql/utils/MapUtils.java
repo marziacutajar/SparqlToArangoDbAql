@@ -53,9 +53,7 @@ public class MapUtils{
 
     public static Map<String, BoundAqlVars> UpdateBoundAqlVarsInMap_CanBeNull(Map<String, BoundAqlVars> map){
         for (Map.Entry<String, BoundAqlVars> entry : map.entrySet()) {
-            for(BoundAqlVarDetails v: entry.getValue().getVars()){
-                v.updateCanBeNull(true);
-            }
+            entry.getValue().updateCanBeNull(true);
         }
 
         return map;

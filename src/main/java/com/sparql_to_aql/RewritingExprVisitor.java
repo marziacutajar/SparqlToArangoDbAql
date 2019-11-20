@@ -182,7 +182,6 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     //handle function that executes over a graph pattern (E_Exists, E_NotExists)
     @Override
     public void visit(ExprFunctionOp func){
-        //TODO we need the current active graph here...
         //TODO cater for filter in (not) exists query.. we need to pass the boundVariables map to the new visitor.. or use the same visitor instead of creating a new one here..?
         // or maybe combine RewritingExprVisitor and ArqToAqlAlgebraVisitor into one class... or just don't support inner filters
         ArqToAqlAlgebraVisitor subQueryTranslator;

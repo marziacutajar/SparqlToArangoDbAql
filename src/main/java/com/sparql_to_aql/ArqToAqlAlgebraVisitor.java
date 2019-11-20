@@ -202,7 +202,8 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         boolean nestLeftWithinRight = false;
 
         //if the VALUES table is on the left side, we nest it within the right side, ie. forloop for VALUES table is ALWAYS the one that's nested - for performance sake
-        // TODO actually does it make sense to nest the VALUES..?? shouldn't it be the other way round ex. if VALUES table is empty then you wouldnt compute a complicated query for nothing
+        //TODO actually does it make sense to nest the VALUES..?? shouldn't it be the other way round ex. if VALUES table is empty then you wouldnt compute a complicated query for nothing
+        // it would only be a problem if the values table is empty.. I believe
         if(opJoin.getLeft() instanceof OpTable) {
             nestLeftWithinRight = true;
         }
@@ -278,11 +279,18 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         AqlQueryNode rightOp = createdAqlNodes.removeLast();
         Map<String, BoundAqlVars> rightBoundVars = GetSparqlVariablesByOp(opLeftJoin.getRight());
 
-        //update all right variables to be canBeNull=true
-        MapUtils.UpdateBoundAqlVarsInMap_CanBeNull(rightBoundVars);
-
         AqlQueryNode leftOp = createdAqlNodes.removeLast();
         Map<String, BoundAqlVars> leftBoundVars = GetSparqlVariablesByOp(opLeftJoin.getLeft());
+
+        //update all right variables that are not DEFINITELY bound by the leftOp to canBeNull=true
+        for (Map.Entry<String, BoundAqlVars> entry : rightBoundVars.entrySet()) {
+            if(leftBoundVars.containsKey(entry.getKey())){
+                if(leftBoundVars.get(entry.getKey()).canBeNull())
+                    entry.getValue().updateCanBeNull(true);
+            }
+            else
+                entry.getValue().updateCanBeNull(true);
+        }
 
         leftOp = EnsureIterationResource(leftOp, leftBoundVars);
         String outerLoopVarName = ((IterationResource) leftOp).getIterationVar().getVarName();
@@ -301,6 +309,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             if(filtersExprs.size() > 0)
                 rightOp = new com.aql.algebra.operators.OpFilter(filtersExprs, rightOp);
             //add project over right op
+            //TODO I think from rightBoundVars we need to remove the variables already bound by the left pattern
             rightOp = new com.aql.algebra.operators.OpProject(rightOp, RewritingUtils.CreateProjectionVarExprList(rightBoundVars), false);
         }
         else{
@@ -322,8 +331,11 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         AqlQueryNode subquery = new IterationResource(forLoopVarGenerator.getNew(), new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(new ExprVar(assignmentVarGenerator.getCurrent())), new Const_Number(0)), new ExprVar(assignmentVarGenerator.getCurrent()), new Const_Array(new Const_Object())));
         newOp = new OpNest(newOp, subquery);
 
-        //TODO make sure that MERGE works well if there are common attributes between the parameters.. https://www.arangodb.com/docs/stable/aql/functions-document.html#merge
-        // especially due to UNDEFs/Optional vars...
+        //TODO MERGE does not work well here if there are common attributes between the parameters.. https://www.arangodb.com/docs/stable/aql/functions-document.html#merge
+        // especially a problem due to UNDEF/Optional vars...
+        // an option is to change the projection of the inner for loop (of the optional pattern) to return only variables that were bound in that optional and not outside.. orrr if it was bound outside, return that value - do this by using NOT_NULL(left_value, right_value)
+        // another option is using KEEP function on the 2nd merge param below to keep only the vars not bound by the left.. but it's better to just come them out during projection as this is extra computation for nothing
+        // ORRR instead of merging them, just project the variables seperately here.. using IS_NULL where necessary
         newOp = new com.aql.algebra.operators.OpProject(newOp, new Expr_Merge(new ExprVar(outerLoopVarName), new ExprVar(forLoopVarGenerator.getCurrent())),false);
 
         Map<String, BoundAqlVars> boundVars = MapUtils.MergeBoundAqlVarsMaps(leftBoundVars, rightBoundVars);
@@ -401,9 +413,11 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         rightOp = new OpCollect(rightOp, countVar);
         rightOp = new com.aql.algebra.operators.OpProject(rightOp, countVar, false);
 
-        //TODO if we start allowing subqueries (AqlQueryNode) in expressions, we wouldn't need an extra assignment here - use ExprSubquery class
+        //below 2 lines can be replace by the line below them
+        //in order to use the ExprSubquery directly in the filter condition and remove the extra assignment
         leftOp = new OpNest(leftOp, new AssignedResource(assignmentVarGenerator.getNew(), (Op)rightOp));
         leftOp = new com.aql.algebra.operators.OpFilter(new Expr_Equals(new ExprVar(assignmentVarGenerator.getCurrent()), new Const_Number(0)), leftOp);
+        //leftOp = new com.aql.algebra.operators.OpFilter(new Expr_Equals(new ExprSubquery((Op)rightOp), new Const_Number(0)), leftOp);
         createdAqlNodes.add(leftOp);
         AddSparqlVariablesByOp(opMinus, leftBoundVars);
     }
@@ -582,7 +596,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
     protected AqlQueryNode EnsureIterationResource(AqlQueryNode node, Map<String, BoundAqlVars> boundVars){
         if(!(node instanceof IterationResource)) {
-            //TODO move the below if into AddNewAssignmentAndLoop
             if(!(node instanceof com.aql.algebra.operators.OpProject)){
                 //add project over left op + let stmt and then create for loop which we need
                 node = new com.aql.algebra.operators.OpProject(node, RewritingUtils.CreateProjectionVarExprList(boundVars), false);

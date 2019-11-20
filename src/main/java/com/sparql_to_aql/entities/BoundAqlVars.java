@@ -16,6 +16,11 @@ import java.util.List;
 public class BoundAqlVars {
     private List<BoundAqlVarDetails> possibleAqlVars;
 
+    // consider renaming canBeNull to something else.. reason being that null and undefined/unbound are not the same in SPARQL
+    // when computing the query.. if a variable is bound to a null value and we join it in SPARQL, it's not treated as an optional variable and an equality condition must be satisfied
+    // what if we rename it to canBeUnbound?? that way we know that obviously when a projection occurs, the variable HAS to be bound (even if to a null value)
+    private boolean canBeNull;
+
     public BoundAqlVars(List<BoundAqlVarDetails> possibleAqlVars){
         this.possibleAqlVars = possibleAqlVars;
     }
@@ -32,7 +37,8 @@ public class BoundAqlVars {
 
     public BoundAqlVars(String aqlVarName, boolean canBeNull){
         this.possibleAqlVars = new ArrayList<>();
-        addVar(aqlVarName, canBeNull);
+        this.canBeNull = canBeNull;
+        addVar(aqlVarName);
     }
 
     public List<BoundAqlVarDetails> getVars(){
@@ -52,7 +58,8 @@ public class BoundAqlVars {
     }
 
     public void addVar(String aqlVarName, boolean canBeNull){
-        possibleAqlVars.add(new BoundAqlVarDetails(aqlVarName, canBeNull));
+        this.canBeNull = canBeNull;
+        possibleAqlVars.add(new BoundAqlVarDetails(aqlVarName));
     }
 
     public void addVars(List<BoundAqlVarDetails> varsDetails){
@@ -91,23 +98,12 @@ public class BoundAqlVars {
         return new Expr_NotNull(exprList);
     }
 
-    /**
-     * Checks all the vars in the list in order, to see if it's possible that the value will be null
-     * @return
-     */
     public boolean canBeNull(){
-        for(BoundAqlVarDetails v: possibleAqlVars) {
-            if(!v.canBeNull())
-                return false;
-        }
-
-        return true;
+        return canBeNull;
     }
 
-    public void setAllCanBeNull(){
-        for(BoundAqlVarDetails v: possibleAqlVars) {
-            v.updateCanBeNull(true);
-        }
+    public void updateCanBeNull(boolean canBeNull){
+        this.canBeNull = canBeNull;
     }
 
     public void removeAllVars(){

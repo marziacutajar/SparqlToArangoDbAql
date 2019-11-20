@@ -2,6 +2,7 @@ package com.sparql_to_aql;
 
 import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.expressions.Constant;
+import com.aql.algebra.expressions.ExprSubquery;
 import com.aql.algebra.expressions.ExprVar;
 import com.aql.algebra.expressions.constants.Const_Object;
 import com.aql.algebra.operators.*;
@@ -347,15 +348,17 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         leftOp = EnsureProjection(leftOp, leftBoundVars);
         rightOp = EnsureProjection(rightOp, rightBoundVars);
 
-        AddNewAssignment((Op)leftOp);
+        //commented below since to shorten query, instead of using 2 LETs, we can just nest them in the union as ExprSubquery objects
+        /*AddNewAssignment((Op)leftOp);
         String leftAssignVar = assignmentVarGenerator.getCurrent();
         AddNewAssignment((Op)rightOp);
-        String rightAssignVar = assignmentVarGenerator.getCurrent();
+        String rightAssignVar = assignmentVarGenerator.getCurrent();*/
 
         Map<String, BoundAqlVars> allBoundVars = MapUtils.MergeBoundAqlVarsMaps(leftBoundVars, rightBoundVars);
         //union the results of both sides and assign the result to another variable + add a new loop over this latest variable
         //as we always need to have at least one node in createdAqlNodes
-        createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(new ExprVar(leftAssignVar), new ExprVar(rightAssignVar)), allBoundVars));
+        //createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(new ExprVar(leftAssignVar), new ExprVar(rightAssignVar)), allBoundVars));
+        createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(new ExprSubquery((Op)leftOp), new ExprSubquery((Op)rightOp)), allBoundVars));
         AddSparqlVariablesByOp(opUnion, allBoundVars);
     }
 
@@ -461,7 +464,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
                 // consider renaming canBeNull to isOptional!!! it's more clear and we're not really talking about nulls.. this way we can distinguish between unbound optional vars and UNDEF vars
                 //if a value for a variable is UNDEF, then in the boundVars map set that variable to canBeNull = true
                 if(value == null) {
-                    boundVars.get(var.getVarName()).setAllCanBeNull();
+                    boundVars.get(var.getVarName()).updateCanBeNull(true);
                     continue;
                 }
 

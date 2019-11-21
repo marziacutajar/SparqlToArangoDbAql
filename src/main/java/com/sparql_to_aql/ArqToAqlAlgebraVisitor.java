@@ -293,7 +293,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         }
 
         leftOp = EnsureIterationResource(leftOp, leftBoundVars);
-        String outerLoopVarName = ((IterationResource) leftOp).getIterationVar().getVarName();
 
         //add filters on the right side results to make sure common variables match to those on the left
         ExprList filtersExprs = GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
@@ -309,7 +308,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             if(filtersExprs.size() > 0)
                 rightOp = new com.aql.algebra.operators.OpFilter(filtersExprs, rightOp);
             //add project over right op
-            //TODO I think from rightBoundVars we need to remove the variables already bound by the left pattern
             rightOp = new com.aql.algebra.operators.OpProject(rightOp, RewritingUtils.CreateProjectionVarExprList(rightBoundVars), false);
         }
         else{
@@ -330,16 +328,9 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         // and if there were matching solutions, we project the join of the left and right data
         AqlQueryNode subquery = new IterationResource(forLoopVarGenerator.getNew(), new Expr_Conditional(new Expr_GreaterThan(new Expr_Length(new ExprVar(assignmentVarGenerator.getCurrent())), new Const_Number(0)), new ExprVar(assignmentVarGenerator.getCurrent()), new Const_Array(new Const_Object())));
         newOp = new OpNest(newOp, subquery);
-
-        //TODO MERGE does not work well here if there are common attributes between the parameters.. https://www.arangodb.com/docs/stable/aql/functions-document.html#merge
-        // especially a problem due to UNDEF/Optional vars...
-        // an option is to change the projection of the inner for loop (of the optional pattern) to return only variables that were bound in that optional and not outside.. orrr if it was bound outside, return that value - do this by using NOT_NULL(left_value, right_value)
-        // another option is using KEEP function on the 2nd merge param below to keep only the vars not bound by the left.. but it's better to just come them out during projection as this is extra computation for nothing
-        // ORRR instead of merging them, just project the variables seperately here.. using IS_NULL where necessary
-        newOp = new com.aql.algebra.operators.OpProject(newOp, new Expr_Merge(new ExprVar(outerLoopVarName), new ExprVar(forLoopVarGenerator.getCurrent())),false);
+        RewritingUtils.UpdateBoundVariablesMapping(rightBoundVars, forLoopVarGenerator.getCurrent(), true);
 
         Map<String, BoundAqlVars> boundVars = MapUtils.MergeBoundAqlVarsMaps(leftBoundVars, rightBoundVars);
-        newOp = AddNewAssignmentAndLoop((Op)newOp, boundVars);
         createdAqlNodes.add(newOp);
         //add bound vars to map
         SetSparqlVariablesByOp(opLeftJoin, boundVars);

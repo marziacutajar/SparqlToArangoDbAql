@@ -8,16 +8,14 @@ import com.arangodb.entity.BaseDocument;
 import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.database.ArangoDbClient;
-import com.sparql_to_aql.entities.algebra.transformers.OpDistinctTransformer;
-import com.sparql_to_aql.entities.algebra.transformers.OpGraphTransformer;
-import com.sparql_to_aql.entities.algebra.transformers.OpProjectOverSliceTransformer;
-import com.sparql_to_aql.entities.algebra.transformers.OpReducedTransformer;
-import com.sparql_to_aql.utils.AqlUtils;
+import com.sparql_to_aql.entities.algebra.transformers.*;
 import com.sparql_to_aql.utils.RewritingUtils;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
+import org.apache.jena.sparql.sse.SSE;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -136,7 +134,7 @@ public class Main {
         Op op = Algebra.compile(query);
 
         //System.out.println("Writing algebra");
-        //SSE.write(op);
+        SSE.write(op);
 
         //below is used to get query back to SPARQL query form - create something similar for changing AQL query expression tree into string form
         //Query queryForm = OpAsQuery.asQuery(op);
@@ -144,10 +142,6 @@ public class Main {
 
         //System.out.println("initial validation and optimization of algebra");
         //call any optimization transformers on the algebra tree
-
-        //TODO TransformPattern2Join is useful if we want to process all triples seperately instead of as BGPs
-        // however not having triples in the same bgp nested in the same subquery will make it slower..I think..
-        //op = Transformer.transform(new TransformPattern2Join(), op);
 
         //transformer to merge project and distinct operators into one
         op = Transformer.transform(new OpDistinctTransformer(), op);
@@ -161,11 +155,12 @@ public class Main {
         //transformer to use to nest slice op in project op instead of vice versa - IMPORTANT this must be applied before OpDistinctTransformer
         op = Transformer.transform(new OpProjectOverSliceTransformer(), op);
 
-        //TODO consider using below but would have to add support for OpSequence
-        //op = Transformer.transform(new TransformFilterPlacement(), op);
-        //consider also these existing transformers:
-        //TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment, TransformImplicitLeftJoin, TransformFilterPlacement, TransformMergeBGPs
-        //SSE.write(op);
+        //If the left side of the left join is the empty graph pattern, we can simply drop the left join and keep the results of the right side
+        //op = Transformer.transform(new LeftJoinOverIdentityPatternTransformer(), op);
+
+        //consider also the below existing transformers (refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/algebra/optimize/package-summary.html for more)
+        //TransformPattern2Join, TransformFilterPlacement, TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment, TransformImplicitLeftJoin, TransformFilterPlacement, TransformMergeBGPs
+        SSE.write(op);
 
         //get FROM and FROM NAMED uris
         List<String> namedGraphs = query.getNamedGraphURIs(); //get all FROM NAMED uris
@@ -191,7 +186,7 @@ public class Main {
         aqlQueryExpression.visit(aqlAlgebraWriter);
         aqlAlgebraWriter.finishVisit();
 
-        //System.out.println(outputStream.toString());
+        System.out.println(outputStream.toString());
         outputStream.close();
 
         //Use AQL query serializer to get actual AQL query

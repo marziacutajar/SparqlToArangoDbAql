@@ -241,7 +241,9 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
     }
 
     public void visit(ExprSubquery expr){
+        out.print("(");
         expr.getSubquery().visit(this);
+        out.print(")");
     }
 
     public void visit(Constant expr){

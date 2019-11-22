@@ -275,8 +275,15 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         AqlQueryNode leftOp = createdAqlNodes.removeLast();
         Map<String, BoundAqlVars> leftBoundVars = boundSparqlVariablesByOp.getSparqlVariablesByOp(opLeftJoin.getLeft());
 
-        //TODO consider moving below updating of canBeNull to AFTER we add the join conditions..?
+        //I only want an iteration resource here so I don't nest too many FOR loops within each other.. it can be
+        //easier to understand if we use LET assignments every now and then
+        leftOp = EnsureIterationResource(leftOp, leftBoundVars);
+
+        //add filters on the right side results to make sure common variables match to those on the left
+        ExprList filtersExprs = GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
+
         //update all right variables that are not DEFINITELY bound by the leftOp to canBeNull=true
+        //we do not update these earlier because it would affect the generated join filter conditions above
         for (Map.Entry<String, BoundAqlVars> entry : rightBoundVars.entrySet()) {
             if(leftBoundVars.containsKey(entry.getKey())){
                 if(leftBoundVars.get(entry.getKey()).canBeNull())
@@ -285,13 +292,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             else
                 entry.getValue().updateCanBeNull(true);
         }
-
-        //I only want an iteration resource here so I don't nest too many FOR loops within each other.. it can be
-        //easier to understand if we use LET assignments every now and then
-        leftOp = EnsureIterationResource(leftOp, leftBoundVars);
-
-        //add filters on the right side results to make sure common variables match to those on the left
-        ExprList filtersExprs = GetFiltersOnCommonVars(leftBoundVars, rightBoundVars);
 
         //if left join contains exprs, apply filter exprs on optional (right) part since that will be nested inside the left part
         if(opLeftJoin.getExprs() != null) {

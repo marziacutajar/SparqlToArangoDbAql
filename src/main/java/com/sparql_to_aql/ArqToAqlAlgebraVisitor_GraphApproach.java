@@ -120,7 +120,7 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
         }
 
         //add used vars in bgp to list
-        SetSparqlVariablesByOp(opBgp, usedVars);
+        boundSparqlVariablesByOp.setSparqlVariablesByOp(opBgp, usedVars);
         createdAqlNodes.add(currAqlNode);
     }
 

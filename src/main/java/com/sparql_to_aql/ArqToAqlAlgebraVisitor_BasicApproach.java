@@ -75,7 +75,7 @@ public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
         }
 
         //add used vars in bgp to list
-        SetSparqlVariablesByOp(opBgp, usedVars);
+        boundSparqlVariablesByOp.setSparqlVariablesByOp(opBgp, usedVars);
         createdAqlNodes.add(currAqlNode);
     }
 
@@ -131,7 +131,7 @@ public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
         }
 
         //add used vars in bgp to list
-        SetSparqlVariablesByOp(opQuadPattern, usedVars);
+        boundSparqlVariablesByOp.setSparqlVariablesByOp(opQuadPattern, usedVars);
         createdAqlNodes.add(currAqlNode);
     }
 

@@ -171,19 +171,11 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     }
 
     //TODO update comments below to explain what we're doing
-    // but how to process nested BGPs like this?! in this case the filter expr wouldn't be just an appended AQL filter but rather we'd need to add a nested subquery for the exists/not exists bgp and add a filter over it..
-    // orrr FILTER LENGTH((NESTED FOR LOOP HERE WITH PROJECT) > 0) (or == 0 if not exists)
-    // OPTION: if a FILTER EXISTS/NOT EXISTS with a nested bgp or whatever is found, in RewritingExprVisitor we need to use another instance of ArqToAqlAlgebra visitor
-    // to translate that nested query and then use it here..
-    // we need to use the boundVariables map that is passed below to RewritingUtils.ProcessExpr and consequently to RewritingExprVisitor
-    // so we can add "join" filter statements
-    // + we don't use the boundVars map generated for the bgp within the exists/not exists - its scope is only during translation of that bgp
-    // then to check for exists/not exists we use length(subquery_results) == 0 or >
     //handle function that executes over a graph pattern (E_Exists, E_NotExists)
     @Override
     public void visit(ExprFunctionOp func){
-        //TODO cater for filter in (not) exists query.. we need to pass the boundVariables map to the new visitor.. or use the same visitor instead of creating a new one here..?
-        // or maybe combine RewritingExprVisitor and ArqToAqlAlgebraVisitor into one class... or just don't support inner filters
+        //TODO cater for filter in (not) exists query.. we need to pass the boundVariables map to the new visitor..
+        //we need to use an instance of ArqToAqlAlgebra visitor to translate the graph pattern within the FILTER clause
         ArqToAqlAlgebraVisitor subQueryTranslator;
         switch (dataModel){
             case D:
@@ -202,7 +194,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         AqlQueryNode finalSubQuery = aqlQueryExpression.getElements().remove(aqlQueryExpression.size() - 1);
         Map<String, BoundAqlVars> subQueryBoundVars = subQueryTranslator.GetLastBoundVars();
 
-        //add join filter statements over finalSubQuery
+        //add join filter statements over finalSubQuery to match the variables bound outside of the FILTER clause
         com.aql.algebra.expressions.ExprList filterExprs = RewritingUtils.GetFiltersOnCommonVars(boundVariables, subQueryBoundVars, dataModel);
         if(filterExprs.size() > 0) {
             finalSubQuery = new com.aql.algebra.operators.OpFilter(filterExprs, finalSubQuery);
@@ -211,6 +203,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         //It is enough for us to project an empty object below.. we're not binding any variables and we just need to count the objects returned in the end
         aqlQueryExpression.add(new OpProject(finalSubQuery, new Const_Object(), false));
 
+        //FILTER LENGTH((NESTED FOR LOOP HERE WITH PROJECT) > 0) if exists (or == 0 if not exists)
         if(func instanceof E_Exists)
             createdAqlExprs.add(new Expr_GreaterThan(new Expr_Length(new ExprSubquery(aqlQueryExpression)), new Const_Number(0)));
         else

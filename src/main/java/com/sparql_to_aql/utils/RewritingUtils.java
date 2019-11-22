@@ -233,7 +233,6 @@ public class RewritingUtils {
                 // in that case we could use UNSET(leftVar, ["_id", "_key", "_rev"]) == UNSET(rightVar, ["_id", "_key", "_rev"])
                 // however using UNSET is not efficient at all... so instead we add four conditions l.type == r.type && l.value == r.value && l.datatype == r.datatype && l.lang == r.lang
                 // if they don't have one of those attributes, it's fine because null == null gives true and they'll match anyway
-                // TODO MAKE SURE YOU MENTION THIS IN THESIS WRITE-UP - IT'S IMPORTANT!!!
                 BoundAqlVars leftAqlVar = leftBoundVars.get(commonVar);
                 BoundAqlVars rightAqlVar = rightBoundVars.get(commonVar);
                 filterExpr = new Expr_Equals(leftAqlVar.asExpr(ArangoAttributes.TYPE), rightAqlVar.asExpr(ArangoAttributes.TYPE));

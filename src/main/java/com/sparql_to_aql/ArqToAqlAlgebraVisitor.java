@@ -2,7 +2,6 @@ package com.sparql_to_aql;
 
 import com.aql.algebra.AqlQueryNode;
 import com.aql.algebra.expressions.Constant;
-import com.aql.algebra.expressions.ExprSubquery;
 import com.aql.algebra.expressions.ExprVar;
 import com.aql.algebra.expressions.constants.Const_Object;
 import com.aql.algebra.operators.*;
@@ -143,8 +142,10 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             }
 
             com.aql.algebra.expressions.Expr aqlSortExpr = RewritingUtils.ProcessExpr(currCond.getExpression(), boundVars, dataModel, forLoopVarGenerator, assignmentVarGenerator, graphForLoopVertexVarGenerator, graphForLoopEdgeVarGenerator, graphForLoopPathVarGenerator);
-            //add .value over sort variable if it is a bound var, since we want the actual value to be sorted (_id, _key, _rev, type properties will otherwise change the sort order)
-            if(aqlSortExpr instanceof com.aql.algebra.expressions.ExprVar && boundVars.values().contains(aqlSortExpr.getVarName()))
+
+            //add .value over sort variable, since we want the actual value to be sorted (_id, _key, _rev, type properties will otherwise change the sort order)
+            // TODO we might need to sort the type attribute too..
+            if(aqlSortExpr instanceof com.aql.algebra.expressions.ExprVar)
                 aqlSortExpr = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(aqlSortExpr.getVarName(), ArangoAttributes.VALUE));
 
             aqlSortConds.add(new com.aql.algebra.SortCondition(aqlSortExpr, direction));

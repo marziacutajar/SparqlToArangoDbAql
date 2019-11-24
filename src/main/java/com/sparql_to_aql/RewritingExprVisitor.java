@@ -255,7 +255,6 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         createdAqlExprs.add(aqlExpr);
     }
 
-    //TODO what about orderby..? if we have OrderBy ?label we need boundvar.value not boundvar here... or we can handle it outside of here
     @Override
     public void visit(ExprVar e){
         createdAqlExprs.add(boundVariables.get(e.getVarName()).asExpr());

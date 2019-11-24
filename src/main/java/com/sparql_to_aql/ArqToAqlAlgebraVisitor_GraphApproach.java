@@ -30,10 +30,10 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
         super(defaultGraphNames, namedGraphs, ArangoDataModel.G, forLoopVarGen, assignmentVarGen, graphVertexVarGen, graphEdgeVarGen, graphPathVarGen);
     }
 
-    //TODO try to use prune..
-    //TODO use INBOUND when we know the object but not the subject!!
-    //TODO consider using OPTIONS {bfs:true}  in graph traversal.. maybe we can improve performance somehow..
-    //TODO also to try to improve performance, when we want to match the _to vertex of a graph traversal to some other vertex matched before, instead of doing g1.vertices[1] = g2.vertices[2], try doing g1.vertices[1]._key = g2.vertices[2]._key ... or _id so maybe we use to edge index on _to
+    //TODO try to improve runtime
+    // try using prune..
+    // try using INBOUND when we know the object but not the subject!!
+    // consider using OPTIONS {bfs:true}  in graph traversal.. maybe we can improve performance somehow..
     @Override
     public void visit(OpBGP opBgp){
         AqlQueryNode currAqlNode = null;

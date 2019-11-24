@@ -9,28 +9,20 @@ import com.aql.algebra.operators.OpSequence;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.entities.BoundAqlVars;
-import com.sparql_to_aql.entities.BoundAqlVars;
 import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
 import com.sparql_to_aql.utils.VariableGenerator;
-import org.apache.jena.reasoner.rulesys.builtins.Bound;
 import org.apache.jena.sparql.algebra.OpWalker;
-import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.expr.*;
 import org.apache.jena.sparql.expr.ExprFunction0;
 import org.apache.jena.sparql.expr.ExprFunction1;
 import org.apache.jena.sparql.expr.ExprFunction2;
 import org.apache.jena.sparql.expr.ExprFunction3;
 import org.apache.jena.sparql.expr.ExprFunctionN;
-
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-//TODO it's gonna be hard to support expressions outside of filters ie. where we need the result of an expression.. possibly mention this in limitations..
-// because we'll need to apply calculations on the VALUE of the arango doc but then we need the TYPE, DATATYPE, LANG, as well..
-// ideally we know the op in which the expr is being used.. so we can add some other conditions
 //Expr is just an interface and there are other classes that implement it and represent operators - refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/expr/Expr.html
 public class RewritingExprVisitor extends ExprVisitorBase {
 
@@ -126,11 +118,39 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         }else if(func instanceof E_LogicalOr){
             aqlExpr = new Expr_LogicalOr(param1, param2);
         }else if(func instanceof E_Equals){
-            //TODO equals would need to be handled differently for graph approach..?
-            aqlExpr = new Expr_Equals(param1, param2);
+            //if we are comparing a constant value to a variable, we have to use .VALUE attribute, otherwise not..
+            if(param1 instanceof com.aql.algebra.expressions.ExprVar && !(param2 instanceof com.aql.algebra.expressions.ExprVar))
+                param1 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE));
+            else if(param2 instanceof com.aql.algebra.expressions.ExprVar && !(param1 instanceof com.aql.algebra.expressions.ExprVar))
+                param2 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE));
+
+            //we need to handle things differently for graph approach - we need to add multiple equals filter conds matching the attributes
+            if (param1 instanceof com.aql.algebra.expressions.ExprVar && param2 instanceof com.aql.algebra.expressions.ExprVar && dataModel == ArangoDataModel.G){
+                aqlExpr = new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.TYPE)));
+                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE))));
+                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
+                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
+            }
+            else
+                aqlExpr = new Expr_Equals(param1, param2);
+
         }else if(func instanceof E_NotEquals){
-            //TODO notequals would need to be handled differently for graph approach..?
-            aqlExpr = new Expr_NotEquals(param1, param2);
+            //if we are comparing a constant value to a variable, we have to use .VALUE attribute, otherwise not..
+            if(param1 instanceof com.aql.algebra.expressions.ExprVar && !(param2 instanceof com.aql.algebra.expressions.ExprVar))
+                param1 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE));
+            else if(param2 instanceof com.aql.algebra.expressions.ExprVar && !(param1 instanceof com.aql.algebra.expressions.ExprVar))
+                param2 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE));
+
+            //we need to handle things differently for graph approach - we need to add multiple equals filter conds matching the attributes
+            if (param1 instanceof com.aql.algebra.expressions.ExprVar && param2 instanceof com.aql.algebra.expressions.ExprVar && dataModel == ArangoDataModel.G){
+                aqlExpr = new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.TYPE)));
+                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE))));
+                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
+                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
+                aqlExpr = new Expr_LogicalNot(aqlExpr);
+            }
+            else
+                aqlExpr = new Expr_NotEquals(param1, param2);
         }
         else if(func instanceof E_LangMatches){
             if(func.getArg2().getConstant().getString().equals("*")){
@@ -170,7 +190,6 @@ public class RewritingExprVisitor extends ExprVisitorBase {
             throw new UnsupportedOperationException("SPARQL expression not supported!");
     }
 
-    //TODO update comments below to explain what we're doing
     //handle function that executes over a graph pattern (E_Exists, E_NotExists)
     @Override
     public void visit(ExprFunctionOp func){
@@ -187,8 +206,10 @@ public class RewritingExprVisitor extends ExprVisitorBase {
             default: throw new UnsupportedOperationException("Unsupported data model!");
         }
 
+        //walk the SPARQL algebra tree of the nested graph pattern using our visitor class, translating it to AQL
         OpWalker.walk(func.getGraphPattern(), subQueryTranslator);
 
+        //get the generated AQL query structure
         OpSequence aqlQueryExpression = subQueryTranslator.GetAqlAlgebraQueryExpression();
 
         AqlQueryNode finalSubQuery = aqlQueryExpression.getElements().remove(aqlQueryExpression.size() - 1);
@@ -234,6 +255,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         createdAqlExprs.add(aqlExpr);
     }
 
+    //TODO what about orderby..? if we have OrderBy ?label we need boundvar.value not boundvar here... or we can handle it outside of here
     @Override
     public void visit(ExprVar e){
         createdAqlExprs.add(boundVariables.get(e.getVarName()).asExpr());

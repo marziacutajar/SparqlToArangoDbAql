@@ -35,10 +35,6 @@ public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
     public void visit(OpBGP opBgp){
         AqlQueryNode currAqlNode = null;
         Map<String, BoundAqlVars> usedVars = new HashMap<>();
-        boolean firstTripleBeingProcessed = true;
-
-        //using this variable, we will make sure the graph name of every triple matching the BGP is in the same graph
-        String outerGraphVarToMatch = "";
 
         for(Triple triple : opBgp.getPattern()){
             //keep list of FILTER clauses per triple
@@ -47,18 +43,13 @@ public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
             String iterationVar = forLoopVarGenerator.getNew();
             AqlQueryNode aqlNode = new IterationResource(iterationVar, new ExprVar(ArangoDatabaseSettings.DocumentModel.rdfCollectionName));
 
-            //if this is the first for loop and there are named graphs specified, add filters for those named graphs
-            if(firstTripleBeingProcessed){
-                outerGraphVarToMatch = AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);
-
-                //if there are default graphs specified, filter by those
-                if(defaultGraphNames.size() > 0){
-                    AddGraphFilters(defaultGraphNames, iterationVar, filterConditions);
-                }
-            }
-            else{
-                //make sure that graph name for consecutive triples matches the one of the first triple
-                filterConditions.add(new Expr_Equals(new ExprVar(AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE)), new ExprVar(outerGraphVarToMatch)));
+            //if there are default graphs specified, filter by those
+            //TODO try to find a better performing approach instead of repeating these filter in each for loop
+            // a simple way would be to use a LET assignment and store all the ArangoDB documents where graph IN (defaultGraphs)
+            // and then iterate over data in that variable instead of over the whole triples collection
+            // however this is only a good idea if collection indexes are still used on the data in that variable
+            if(defaultGraphNames.size() > 0){
+                AddGraphFilters(defaultGraphNames, iterationVar, filterConditions);
             }
 
             ProcessTripleParts(triple, iterationVar, filterConditions, usedVars);
@@ -70,8 +61,6 @@ public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
             else {
                 currAqlNode = new OpNest(currAqlNode, aqlNode);
             }
-
-            firstTripleBeingProcessed = false;
         }
 
         //add used vars in bgp to list
@@ -101,6 +90,7 @@ public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
             if(firstTripleBeingProcessed){
                 outerGraphVarToMatch = AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);
 
+                //TODO what if there are no named graphs defined in FROM NAMED??? in that case the inner graph pattern should return nothing no??
                 if(graphNode.isVariable()){
                     AddGraphFilters(namedGraphNames, iterationVar, filterConditions);
 

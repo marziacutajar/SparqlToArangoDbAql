@@ -66,6 +66,8 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     protected VariableGenerator graphForLoopEdgeVarGenerator = new VariableGenerator("g_e");
     protected VariableGenerator graphForLoopPathVarGenerator = new VariableGenerator("g_p");
 
+    //TODO consider not storing these by Op, but rather keep an ordered list and we always get them from the end (like with createdAqlNodes)
+    // it would make it simpler to pass boundVars to process FILTER (NOT) EXISTS expressions too..
     protected BoundSparqlVariablesByOp boundSparqlVariablesByOp = new BoundSparqlVariablesByOp();
 
     //use linked list - easier to pop out and push items from front or back
@@ -348,16 +350,16 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         rightOp = EnsureProjection(rightOp, rightBoundVars);
 
         //commented below since to shorten query, instead of using 2 LETs, we can just nest them in the union as ExprSubquery objects
-        /*AddNewAssignment((Op)leftOp);
+        AddNewAssignment((Op)leftOp);
         String leftAssignVar = assignmentVarGenerator.getCurrent();
         AddNewAssignment((Op)rightOp);
-        String rightAssignVar = assignmentVarGenerator.getCurrent();*/
+        String rightAssignVar = assignmentVarGenerator.getCurrent();
 
         Map<String, BoundAqlVars> allBoundVars = MapUtils.MergeBoundAqlVarsMaps(leftBoundVars, rightBoundVars);
         //union the results of both sides and assign the result to another variable + add a new loop over this latest variable
         //as we always need to have at least one node in createdAqlNodes
-        //createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(new ExprVar(leftAssignVar), new ExprVar(rightAssignVar)), allBoundVars));
-        createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(new ExprSubquery((Op)leftOp), new ExprSubquery((Op)rightOp)), allBoundVars));
+        createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(new ExprVar(leftAssignVar), new ExprVar(rightAssignVar)), allBoundVars));
+        //createdAqlNodes.add(AddNewAssignmentAndLoop(new Expr_Union(new ExprSubquery((Op)leftOp), new ExprSubquery((Op)rightOp)), allBoundVars));
         boundSparqlVariablesByOp.setSparqlVariablesByOp(opUnion, allBoundVars);
     }
 
@@ -456,12 +458,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             for(Var var : vars){
                 Node value = b.get(var);
 
-                //TODO UNDEF and NULL are NOT the same.. cater for this ex. add a canBeUndefined attribute or something
-                // UNDEF only changes to null when we go out of the WHERE clause..
-                // SO when a SPARQL WHERE clause occurs we should update all vars where canBeUndefined = true to canBeUndefined = false - right now this is being done automatically
-                // SO WHEN canBeUndefined attribute = true we use HAS function to see if the document has it or not..
-                // We can't have a var that's both canBeNull = true and canBeUndefined = true.. we have to set a restriction on this or make it an enum instead
-                // consider renaming canBeNull to isOptional!!! it's more clear and we're not really talking about nulls.. this way we can distinguish between unbound optional vars and UNDEF vars
                 //if a value for a variable is UNDEF, then in the boundVars map set that variable to canBeNull = true
                 if(value == null) {
                     boundVars.get(var.getVarName()).updateCanBeNull(true);
@@ -510,7 +506,8 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             }
         }
 
-        filterConditions.add(filterExpr);
+        if(filterExpr != null)
+            filterConditions.add(filterExpr);
     }
 
     protected void AddNewAssignment(Op opToAssign){

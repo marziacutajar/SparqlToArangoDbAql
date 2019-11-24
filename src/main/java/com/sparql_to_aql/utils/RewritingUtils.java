@@ -84,6 +84,7 @@ public class RewritingUtils {
             }
         }
         else if(node.isURI()){
+            //TODO consider checking for type ONLY for objects..
             if(!isPredicate){
                 //we only apply this if the node is not a predicate, because predicates can only be IRIs anyway - adding this condition would be futile
                 filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));

@@ -14,7 +14,12 @@ import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
+import org.apache.jena.sparql.algebra.optimize.TransformFilterPlacement;
+import org.apache.jena.sparql.algebra.optimize.TransformReorder;
 import org.apache.jena.sparql.sse.SSE;
+import virtuoso.jena.driver.VirtGraph;
+import virtuoso.jena.driver.VirtuosoQueryExecution;
+import virtuoso.jena.driver.VirtuosoQueryExecutionFactory;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -25,11 +30,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
 
     private static final int queryRuns = 15;
     private static SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmm");
+    private static VirtGraph db = new VirtGraph("http://localhost:8890/thesis_dataset", "jdbc:virtuoso://localhost:1111", "dba", "dba");
 
     public static void main(String[] args) {
         // create the parser
@@ -60,6 +67,7 @@ public class Main {
             String formattedDate = DATE_FORMAT.format(new Date());
             //add results of multiple queries to the same results file (one row for each query, make first column the query file name)
             FileWriter csvWriter = new FileWriter(directoryName + "/" + formattedDate + ".csv");
+            FileWriter csvWriterVirtuoso = new FileWriter(directoryName + "/" + formattedDate + "_virtuoso" + ".csv");
 
             List<File> files = GetFilesFromArgumentPaths(filePaths);
 
@@ -79,32 +87,15 @@ public class Main {
                     System.out.println(aqlQuery);
 
                     ArangoDbClient arangoDbClient = new ArangoDbClient();
-                    ArangoCursor<BaseDocument> results = null;
+                    String resultDataFileName = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + ".csv";
+                    String resultDataFileNameVirtuoso = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + "_virtuoso" + ".csv";
                     System.out.println("Executing generated AQL query on ArangoDb..");
 
-                    long[] timeMeasurements = new long[queryRuns];
-                    //long sum = 0;
+                    ExecuteAqlQuery(csvWriter, fileName, arangoDbClient, aqlQuery, resultDataFileName);
 
-                    csvWriter.append(fileName + ",");
-                    for (int i = 0; i < queryRuns; i++) {
-                        Instant start = Instant.now();
-                        results = arangoDbClient.execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
-                        Instant finish = Instant.now();
-                        timeMeasurements[i] = Duration.between(start, finish).toMillis();
-                        //sum += timeMeasurements[i];
-                        csvWriter.append(String.valueOf(timeMeasurements[i]));
-                        if (i < queryRuns - 1) {
-                            csvWriter.append(",");
-                        }
-                    }
-
-                    csvWriter.append("\r\n");
-                    csvWriter.flush();
-
-                    String resultDataFileName = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + ".csv";
-                    /*long averageRuntime = (sum / queryRuns);
-                    System.out.println("Average query runtime: " + averageRuntime + "ms");*/
-                    RewritingUtils.printQueryResultsToFile(results, resultDataFileName);
+                    System.out.println("Executing SPARQL query on Virtuoso database...");
+                    VirtuosoQueryExecution vqe = VirtuosoQueryExecutionFactory.create(query, db);
+                    ExecuteSparqlQueryOnVirtuoso(csvWriterVirtuoso, fileName, vqe, resultDataFileNameVirtuoso);
                 }
                 catch (QueryException qe) {
                     System.out.println("Invalid SPARQL query. ");
@@ -129,7 +120,7 @@ public class Main {
         System.exit(0);
     }
 
-    public static String SparqlQueryToAqlQuery(Query query, ArangoDataModel dataModel) throws IOException {
+    private static String SparqlQueryToAqlQuery(Query query, ArangoDataModel dataModel) throws IOException {
         //System.out.println("Generating algebra");
         Op op = Algebra.compile(query);
 
@@ -155,11 +146,18 @@ public class Main {
         //transformer to use to nest slice op in project op instead of vice versa - IMPORTANT this must be applied before OpDistinctTransformer
         op = Transformer.transform(new OpProjectOverSliceTransformer(), op);
 
+        //TODO mention below transformer in thesis - it has a HUGE effect on query runtime
+        //transformer to reorder the position of triple patterns in BGPs/Quads to improve runtime
+        op = Transformer.transform(new TransformReorder(), op);
+
+        //op = Transformer.transform(new TransformFilterPlacement(), op);
+        //op = Transformer.transform(new OpSequenceTransformer(), op);
+
         //If the left side of the left join is the empty graph pattern, we can simply drop the left join and keep the results of the right side
         //op = Transformer.transform(new LeftJoinOverIdentityPatternTransformer(), op);
 
         //consider also the below existing transformers (refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/algebra/optimize/package-summary.html for more)
-        //TransformPattern2Join, TransformFilterPlacement, TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment, TransformImplicitLeftJoin, TransformFilterPlacement, TransformMergeBGPs
+        //TransformPattern2Join, TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment, TransformImplicitLeftJoin, TransformMergeBGPs
         SSE.write(op);
 
         //get FROM and FROM NAMED uris
@@ -186,6 +184,7 @@ public class Main {
         aqlQueryExpression.visit(aqlAlgebraWriter);
         aqlAlgebraWriter.finishVisit();
 
+        //TODO save the AQL query to file
         System.out.println(outputStream.toString());
         outputStream.close();
 
@@ -199,7 +198,7 @@ public class Main {
         return out.toString();
     }
 
-    public static List<File> GetFilesFromArgumentPaths(String[] filePaths){
+    private static List<File> GetFilesFromArgumentPaths(String[] filePaths){
         List<File> files = new ArrayList<>();
 
         for (String filePath: filePaths) {
@@ -216,5 +215,65 @@ public class Main {
         }
 
         return files;
+    }
+
+    private static void ExecuteAqlQuery(FileWriter csvWriter, String fileName, ArangoDbClient arangoDbClient, String aqlQuery, String resultDataFileName) throws IOException {
+        long[] timeMeasurements = new long[queryRuns];
+        //long sum = 0;
+        ArangoCursor<BaseDocument> results = null;
+
+        csvWriter.append(fileName + ",");
+        for (int i = 0; i < queryRuns; i++) {
+            Instant start = Instant.now();
+            results = arangoDbClient.execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
+            Instant finish = Instant.now();
+            //timeMeasurements[i] = TimeUnit.NANOSECONDS.toMicros(Duration.between(start, finish).toNanos());
+            timeMeasurements[i] = Duration.between(start, finish).toMillis();
+            //sum += timeMeasurements[i];
+            csvWriter.append(String.valueOf(timeMeasurements[i]));
+            if (i < queryRuns - 1) {
+                csvWriter.append(",");
+            }
+        }
+
+        csvWriter.append("\r\n");
+        csvWriter.flush();
+
+        /*long averageRuntime = (sum / queryRuns);
+        System.out.println("Average query runtime: " + averageRuntime + "ms");*/
+        RewritingUtils.printQueryResultsToFile(results, resultDataFileName);
+    }
+
+    private static void ExecuteSparqlQueryOnVirtuoso(FileWriter csvWriter, String fileName, VirtuosoQueryExecution vqe, String resultDataFileName) throws IOException {
+        long[] timeMeasurements = new long[queryRuns];
+        //long sum = 0;
+        ResultSet results = null;
+
+        csvWriter.append(fileName + ",");
+        for (int i = 0; i < queryRuns; i++) {
+            Instant start = Instant.now();
+            results = vqe.execSelect();
+            //also count how long it takes to "process" the results
+            ResultSetFormatter.consume(results);
+            Instant finish = Instant.now();
+            //timeMeasurements[i] = TimeUnit.NANOSECONDS.toMicros(Duration.between(start, finish).toNanos());
+            timeMeasurements[i] = Duration.between(start, finish).toMillis();
+            //sum += timeMeasurements[i];
+            csvWriter.append(String.valueOf(timeMeasurements[i]));
+            if (i < queryRuns - 1) {
+                csvWriter.append(",");
+            }
+        }
+
+        csvWriter.append("\r\n");
+        csvWriter.flush();
+
+        //TODO print data results to file
+        /*long averageRuntime = (sum / queryRuns);
+        System.out.println("Average query runtime: " + averageRuntime + "ms");*/
+        //RewritingUtils.printQueryResultsToFile(results, resultDataFileName);
+        while(results.hasNext()) {
+            QuerySolution curr = results.next();
+        }
     }
 }

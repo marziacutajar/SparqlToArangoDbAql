@@ -192,6 +192,15 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
         out.println();
     }
 
+    public void visit(OpSequence opSequence){
+        for (Iterator<AqlQueryNode> iter = opSequence.iterator(); iter.hasNext();)
+        {
+            AqlQueryNode sub = iter.next();
+            sub.visit(this);
+            CURRENT_INDENT = 0;
+        }
+    }
+
     public void visit(ExprFunction1 expr){
         if(expr.getOpName() != null){
             out.print(expr.getOpName());
@@ -267,15 +276,6 @@ public class AqlQuerySerializer implements NodeVisitor, ExprVisitor {
             if(it.hasNext()){
                 out.print(", ");
             }
-        }
-    }
-
-    public void visit(OpSequence opSequence){
-        for (Iterator<AqlQueryNode> iter = opSequence.iterator(); iter.hasNext();)
-        {
-            AqlQueryNode sub = iter.next();
-            sub.visit(this);
-            CURRENT_INDENT = 0;
         }
     }
 

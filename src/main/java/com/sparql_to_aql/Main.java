@@ -9,6 +9,7 @@ import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.*;
+import com.sparql_to_aql.utils.MathUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
@@ -28,6 +29,7 @@ import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -67,6 +69,8 @@ public class Main {
             String formattedDate = DATE_FORMAT.format(new Date());
             //add results of multiple queries to the same results file (one row for each query, make first column the query file name)
             FileWriter csvWriter = new FileWriter(directoryName + "/" + formattedDate + ".csv");
+            csvWriter.append("Query" + ",");
+            csvWriter.append(data_model.name() + "\r\n");
             FileWriter csvWriterVirtuoso = new FileWriter(directoryName + "/" + formattedDate + "_virtuoso" + ".csv");
 
             List<File> files = GetFilesFromArgumentPaths(filePaths);
@@ -218,8 +222,8 @@ public class Main {
     }
 
     private static void ExecuteAqlQuery(FileWriter csvWriter, String fileName, ArangoDbClient arangoDbClient, String aqlQuery, String resultDataFileName) throws IOException {
-        long[] timeMeasurements = new long[queryRuns];
-        //long sum = 0;
+        //long[] timeMeasurements = new long[queryRuns];
+        List<Long> timeMeasures = new ArrayList<>();
         ArangoCursor<BaseDocument> results = null;
 
         csvWriter.append(fileName + ",");
@@ -228,25 +232,27 @@ public class Main {
             results = arangoDbClient.execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
             Instant finish = Instant.now();
             //timeMeasurements[i] = TimeUnit.NANOSECONDS.toMicros(Duration.between(start, finish).toNanos());
-            timeMeasurements[i] = Duration.between(start, finish).toMillis();
-            //sum += timeMeasurements[i];
-            csvWriter.append(String.valueOf(timeMeasurements[i]));
-            if (i < queryRuns - 1) {
+            //timeMeasurements[i] = Duration.between(start, finish).toMillis();
+            timeMeasures.add(Duration.between(start, finish).toMillis());
+            double millis = (Duration.between(start, finish).toNanos() / 1E6);
+            System.out.println(millis);
+            //csvWriter.append(String.valueOf(timeMeasurements[i]));
+            /*if (i < queryRuns - 1) {
                 csvWriter.append(",");
-            }
+            }*/
         }
 
+        //remove the two largest and the two smallest run times, then compute average
+        long avgRuntime = MathUtils.calculateAverageLong(timeMeasures, 2);
+        csvWriter.append(String.valueOf(avgRuntime));
         csvWriter.append("\r\n");
         csvWriter.flush();
 
-        /*long averageRuntime = (sum / queryRuns);
-        System.out.println("Average query runtime: " + averageRuntime + "ms");*/
         RewritingUtils.printQueryResultsToFile(results, resultDataFileName);
     }
 
     private static void ExecuteSparqlQueryOnVirtuoso(FileWriter csvWriter, String fileName, VirtuosoQueryExecution vqe, String resultDataFileName) throws IOException {
-        long[] timeMeasurements = new long[queryRuns];
-        //long sum = 0;
+        List<Long> timeMeasures = new ArrayList<>();
         ResultSet results = null;
 
         csvWriter.append(fileName + ",");
@@ -256,21 +262,17 @@ public class Main {
             //also count how long it takes to "process" the results
             ResultSetFormatter.consume(results);
             Instant finish = Instant.now();
-            //timeMeasurements[i] = TimeUnit.NANOSECONDS.toMicros(Duration.between(start, finish).toNanos());
-            timeMeasurements[i] = Duration.between(start, finish).toMillis();
-            //sum += timeMeasurements[i];
-            csvWriter.append(String.valueOf(timeMeasurements[i]));
-            if (i < queryRuns - 1) {
-                csvWriter.append(",");
-            }
+            //timeMeasures.add(TimeUnit.NANOSECONDS.toMicros(Duration.between(start, finish).toNanos()));
+            timeMeasures.add(Duration.between(start, finish).toMillis());
         }
 
+        //remove the two largest and the two smallest run times, then compute average
+        long avgRuntime = MathUtils.calculateAverageLong(timeMeasures, 2);
+        csvWriter.append(String.valueOf(avgRuntime));
         csvWriter.append("\r\n");
         csvWriter.flush();
 
         //TODO print data results to file
-        /*long averageRuntime = (sum / queryRuns);
-        System.out.println("Average query runtime: " + averageRuntime + "ms");*/
         //RewritingUtils.printQueryResultsToFile(results, resultDataFileName);
         while(results.hasNext()) {
             QuerySolution curr = results.next();

@@ -11,6 +11,7 @@ import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.*;
 import com.sparql_to_aql.utils.MathUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
+import com.sparql_to_aql.utils.SparqlUtils;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.query.*;
@@ -25,6 +26,7 @@ import virtuoso.jena.driver.VirtuosoQueryExecutionFactory;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -38,8 +40,9 @@ public class Main {
 
     private static final int queryRuns = 15;
     private static SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmm");
+    //TODO consider removing usage of named graph below somehow...
     private static VirtGraph db = new VirtGraph("http://localhost:8890/thesis_dataset", "jdbc:virtuoso://localhost:1111", "dba", "dba");
-
+    //private static VirtGraph db = new VirtGraph(null, "jdbc:virtuoso://localhost:1111", "dba", "dba");
     public static void main(String[] args) {
         // create the parser
         CommandLineParser parser = new DefaultParser();
@@ -138,17 +141,8 @@ public class Main {
         //System.out.println("initial validation and optimization of algebra");
         //call any optimization transformers on the algebra tree
 
-        //transformer to merge project and distinct operators into one
-        op = Transformer.transform(new OpDistinctTransformer(), op);
-
         //transformer to use if we're gonna remove REDUCED from a query and just do a normal project
         op = Transformer.transform(new OpReducedTransformer(), op);
-
-        //transformer to use to combine graph and its nested bgp into one operator
-        op = Transformer.transform(new OpGraphTransformer(), op);
-
-        //transformer to use to nest slice op in project op instead of vice versa - IMPORTANT this must be applied before OpDistinctTransformer
-        op = Transformer.transform(new OpProjectOverSliceTransformer(), op);
 
         //TODO mention below transformer in thesis - it has a HUGE effect on query runtime
         //transformer to reorder the position of triple patterns in BGPs/Quads to improve runtime
@@ -156,6 +150,16 @@ public class Main {
 
         //op = Transformer.transform(new TransformFilterPlacement(), op);
         //op = Transformer.transform(new OpSequenceTransformer(), op);
+
+        //transformer to merge project and distinct operators into one
+        op = Transformer.transform(new OpDistinctTransformer(), op);
+
+        //transformer to use to combine graph and its nested bgp into one operator
+        op = Transformer.transform(new OpGraphTransformer(), op);
+
+        //transformer to use to nest slice op in project op instead of vice versa - IMPORTANT this must be applied before OpDistinctTransformer
+        op = Transformer.transform(new OpProjectOverSliceTransformer(), op);
+
 
         //If the left side of the left join is the empty graph pattern, we can simply drop the left join and keep the results of the right side
         //op = Transformer.transform(new LeftJoinOverIdentityPatternTransformer(), op);
@@ -195,7 +199,6 @@ public class Main {
         //Use AQL query serializer to get actual AQL query
         StringWriter out = new StringWriter();
         AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(out);
-        //AqlQuerySerializer aqlQuerySerializer = new AqlQuerySerializer(System.out);
         aqlQueryExpression.visit(aqlQuerySerializer);
         aqlQuerySerializer.finishVisit();
 
@@ -222,8 +225,7 @@ public class Main {
     }
 
     private static void ExecuteAqlQuery(FileWriter csvWriter, String fileName, ArangoDbClient arangoDbClient, String aqlQuery, String resultDataFileName) throws IOException {
-        //long[] timeMeasurements = new long[queryRuns];
-        List<Long> timeMeasures = new ArrayList<>();
+        List<Double> timeMeasurements = new ArrayList<>();
         ArangoCursor<BaseDocument> results = null;
 
         csvWriter.append(fileName + ",");
@@ -232,50 +234,42 @@ public class Main {
             results = arangoDbClient.execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
             Instant finish = Instant.now();
             //timeMeasurements[i] = TimeUnit.NANOSECONDS.toMicros(Duration.between(start, finish).toNanos());
-            //timeMeasurements[i] = Duration.between(start, finish).toMillis();
-            timeMeasures.add(Duration.between(start, finish).toMillis());
-            double millis = (Duration.between(start, finish).toNanos() / 1E6);
-            System.out.println(millis);
-            //csvWriter.append(String.valueOf(timeMeasurements[i]));
-            /*if (i < queryRuns - 1) {
-                csvWriter.append(",");
-            }*/
+            timeMeasurements.add(Duration.between(start, finish).toNanos() / 1E6);
         }
 
         //remove the two largest and the two smallest run times, then compute average
-        long avgRuntime = MathUtils.calculateAverageLong(timeMeasures, 2);
-        csvWriter.append(String.valueOf(avgRuntime));
+        double avgRuntime = MathUtils.calculateAverageDouble(timeMeasurements, 2);
+        DecimalFormat df = new DecimalFormat("#.##");
+        csvWriter.append(df.format(avgRuntime));
         csvWriter.append("\r\n");
         csvWriter.flush();
 
-        RewritingUtils.printQueryResultsToFile(results, resultDataFileName);
+        RewritingUtils.printAqlQueryResultsToFile(results, resultDataFileName);
     }
 
     private static void ExecuteSparqlQueryOnVirtuoso(FileWriter csvWriter, String fileName, VirtuosoQueryExecution vqe, String resultDataFileName) throws IOException {
-        List<Long> timeMeasures = new ArrayList<>();
+        List<Double> timeMeasurements = new ArrayList<>();
         ResultSet results = null;
 
         csvWriter.append(fileName + ",");
         for (int i = 0; i < queryRuns; i++) {
             Instant start = Instant.now();
             results = vqe.execSelect();
-            //also count how long it takes to "process" the results
-            ResultSetFormatter.consume(results);
+            //TODO also count how long it takes to "process" the results
+
             Instant finish = Instant.now();
-            //timeMeasures.add(TimeUnit.NANOSECONDS.toMicros(Duration.between(start, finish).toNanos()));
-            timeMeasures.add(Duration.between(start, finish).toMillis());
+            timeMeasurements.add(Duration.between(start, finish).toNanos() / 1E6);
         }
 
         //remove the two largest and the two smallest run times, then compute average
-        long avgRuntime = MathUtils.calculateAverageLong(timeMeasures, 2);
-        csvWriter.append(String.valueOf(avgRuntime));
+        double avgRuntime = MathUtils.calculateAverageDouble(timeMeasurements, 2);
+        DecimalFormat df = new DecimalFormat("#.##");
+        csvWriter.append(df.format(avgRuntime));
         csvWriter.append("\r\n");
         csvWriter.flush();
+        csvWriter.close();
 
-        //TODO print data results to file
-        //RewritingUtils.printQueryResultsToFile(results, resultDataFileName);
-        while(results.hasNext()) {
-            QuerySolution curr = results.next();
-        }
+        //print data results to file
+        SparqlUtils.printSparqlQueryResultsToFile(results, resultDataFileName);
     }
 }

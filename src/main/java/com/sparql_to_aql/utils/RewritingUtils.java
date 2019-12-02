@@ -288,7 +288,7 @@ public class RewritingUtils {
         return new Const_Object(objectProperties);
     }
 
-    public static void printQueryResultsToFile(ArangoCursor<BaseDocument> results, String filePath)throws IOException {
+    public static void printAqlQueryResultsToFile(ArangoCursor<BaseDocument> results, String filePath)throws IOException {
         FileWriter csvWriter = new FileWriter(filePath);
         boolean firstRow = true;
         while(results.hasNext()){

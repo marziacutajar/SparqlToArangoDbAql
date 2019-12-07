@@ -169,15 +169,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
         if(opProject instanceof OpDistinctProject){
             useDistinct = true;
-            /*if(projectableVars.size() == 1){
-
-            }
-            else{
-                //SELECT DISTINCT WITH >1 VAR = COLLECT in AQL... consider mentioning this in thesis writeup in AQL algebra
-
-                //apply collect stmt over current projectionSubOp
-                currOp = new OpCollect(currOp, RewritingUtils.CreateCollectVarExprList(projectableVars, boundVars), null);
-            }*/
         }
 
         com.aql.algebra.expressions.VarExprList returnVariables = RewritingUtils.CreateProjectionVarExprList(projectableVars, boundVars);

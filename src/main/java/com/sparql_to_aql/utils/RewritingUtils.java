@@ -7,20 +7,14 @@ import com.arangodb.ArangoCursor;
 import com.arangodb.entity.BaseDocument;
 import com.sparql_to_aql.RewritingExprVisitor;
 import com.sparql_to_aql.constants.*;
-import com.sparql_to_aql.constants.arangodb.AqlOperators;
-import com.sparql_to_aql.entities.BoundAqlVarDetails;
 import com.sparql_to_aql.entities.BoundAqlVars;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.jena.datatypes.RDFDatatype;
 import org.apache.jena.datatypes.xsd.impl.RDFLangString;
 import org.apache.jena.datatypes.xsd.impl.XSDBaseNumericType;
 import org.apache.jena.graph.Node;
-import org.apache.jena.rdf.model.ModelGraphInterface;
-import org.apache.jena.rdf.model.impl.ModelCom;
-import org.apache.jena.sparql.algebra.Table;
 import org.apache.jena.sparql.algebra.walker.Walker;
 import org.apache.jena.sparql.core.Var;
-import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.expr.*;
 
 import java.io.FileWriter;
@@ -315,15 +309,18 @@ public class RewritingUtils {
                             formattedValue = values.get(ArangoAttributes.VALUE).toString();
                             break;
                         case RdfObjectTypes.LITERAL:
-                            formattedValue = values.get(ArangoAttributes.VALUE).toString();
-                            if(values.get(ArangoAttributes.VALUE) instanceof String){
-                                if(values.get(ArangoAttributes.LITERAL_LANGUAGE) != null){
-                                    formattedValue = StringEscapeUtils.escapeCsv(AqlUtils.quoteString(formattedValue));
-                                    formattedValue += "@" + values.get(ArangoAttributes.LITERAL_LANGUAGE).toString();
-                                }
+                            formattedValue = StringEscapeUtils.escapeCsv(AqlUtils.quoteString(values.get(ArangoAttributes.VALUE).toString()));
+
+                            if(values.get(ArangoAttributes.LITERAL_LANGUAGE) != null){
+                                formattedValue += "@" + values.get(ArangoAttributes.LITERAL_LANGUAGE).toString();
+                            }
+                            else if (values.get(ArangoAttributes.LITERAL_DATA_TYPE) != null){
+                                formattedValue += "^^" + values.get(ArangoAttributes.LITERAL_DATA_TYPE).toString();
                             }
 
-                            //String datatype = values.get(ArangoAttributes.LITERAL_DATA_TYPE).toString();
+                            break;
+                        case RdfObjectTypes.BLANK_NODE:
+                            formattedValue = "_:" + values.get(ArangoAttributes.VALUE).toString();
                             break;
                         default:
                             throw new UnsupportedOperationException("Type not supported");

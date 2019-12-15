@@ -59,7 +59,7 @@ public class RewritingUtils {
 
         String currAqlVarName = AqlUtils.buildVar(forLoopVarName, attributeName);
 
-        ProcessTripleNode(node, currAqlVarName, filterConditions, boundVars, role.equals(NodeRole.PREDICATE));
+        ProcessTripleNode(node, currAqlVarName, filterConditions, boundVars, role.equals(NodeRole.OBJECT));
     }
 
     /**
@@ -68,9 +68,9 @@ public class RewritingUtils {
      * @param currAqlVarName AQL variable name representing the node
      * @param filterConditions list of current forloop filter conditions, to which more conditions can be appended
      * @param boundVars map of all bound SPARQL variables to AQL variables in the current scope
-     * @param isPredicate boolean value specifying if the node is in the predicate position in the triple pattern
+     * @param isObject boolean value specifying if the node is in the object position in the triple pattern
      */
-    public static void ProcessTripleNode(Node node, String currAqlVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, BoundAqlVars> boundVars, boolean isPredicate){
+    public static void ProcessTripleNode(Node node, String currAqlVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, BoundAqlVars> boundVars, boolean isObject){
         //IMP: in ARQ query expression, blank nodes are represented as variables ??0, ??1 etc.. thus no need to check node.isBlank()
         if(node.isVariable()) {
             String var_name = node.getName();
@@ -84,9 +84,8 @@ public class RewritingUtils {
             }
         }
         else if(node.isURI()){
-            //TODO consider checking for type ONLY for objects..
-            if(!isPredicate){
-                //we only apply this if the node is not a predicate, because predicates can only be IRIs anyway - adding this condition would be futile
+            if(isObject){
+                //we only apply this if the node is an object, because predicates can only be IRIs anyway, and although subjects can also be blank nodes, they can never have an IRI as their value - thus adding this condition would be futile in these cases
                 filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));
             }
 

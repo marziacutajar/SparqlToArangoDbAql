@@ -267,7 +267,6 @@ public class Main {
         csvWriter.append(df.format(avgRuntime));
         csvWriter.append("\r\n");
         csvWriter.flush();
-        csvWriter.close();
 
         //print data results to file
         SparqlUtils.printSparqlQueryResultsToFile(results, resultDataFileName);

@@ -1,2 +1,2 @@
-SPARQL to ArangoDB AQL Translator
+SPARQL query expression to ArangoDB AQL query expression translator
 

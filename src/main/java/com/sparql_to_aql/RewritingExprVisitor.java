@@ -117,7 +117,8 @@ public class RewritingExprVisitor extends ExprVisitorBase {
             aqlExpr = new Expr_LogicalAnd(param1, param2);
         }else if(func instanceof E_LogicalOr){
             aqlExpr = new Expr_LogicalOr(param1, param2);
-        }else if(func instanceof E_Equals){
+        }else if(func instanceof E_Equals || func instanceof E_NotEquals){
+            //TODO what if one of the params is a constant json object ie. represents a document (happens when have a literal or IRI node value)? then we want to compare the whole document to another document ie. don't change the var name
             //if we are comparing a constant value to a variable, we have to use .VALUE attribute, otherwise not..
             if(param1 instanceof com.aql.algebra.expressions.ExprVar && !(param2 instanceof com.aql.algebra.expressions.ExprVar))
                 param1 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE));
@@ -125,32 +126,21 @@ public class RewritingExprVisitor extends ExprVisitorBase {
                 param2 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE));
 
             //we need to handle things differently for graph approach - we need to add multiple equals filter conds matching the attributes
-            if (param1 instanceof com.aql.algebra.expressions.ExprVar && param2 instanceof com.aql.algebra.expressions.ExprVar && dataModel == ArangoDataModel.G){
+            if (dataModel == ArangoDataModel.G && param1 instanceof com.aql.algebra.expressions.ExprVar && param2 instanceof com.aql.algebra.expressions.ExprVar){
                 aqlExpr = new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.TYPE)));
                 aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE))));
                 aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
                 aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
+                
+                if(func instanceof E_NotEquals)
+                    aqlExpr = new Expr_LogicalNot(aqlExpr);
             }
-            else
-                aqlExpr = new Expr_Equals(param1, param2);
-
-        }else if(func instanceof E_NotEquals){
-            //if we are comparing a constant value to a variable, we have to use .VALUE attribute, otherwise not..
-            if(param1 instanceof com.aql.algebra.expressions.ExprVar && !(param2 instanceof com.aql.algebra.expressions.ExprVar))
-                param1 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE));
-            else if(param2 instanceof com.aql.algebra.expressions.ExprVar && !(param1 instanceof com.aql.algebra.expressions.ExprVar))
-                param2 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE));
-
-            //we need to handle things differently for graph approach - we need to add multiple equals filter conds matching the attributes
-            if (param1 instanceof com.aql.algebra.expressions.ExprVar && param2 instanceof com.aql.algebra.expressions.ExprVar && dataModel == ArangoDataModel.G){
-                aqlExpr = new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.TYPE)));
-                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE))));
-                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
-                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
-                aqlExpr = new Expr_LogicalNot(aqlExpr);
+            else {
+                if(func instanceof E_Equals)
+                    aqlExpr = new Expr_Equals(param1, param2);
+                else
+                    aqlExpr = new Expr_NotEquals(param1, param2);
             }
-            else
-                aqlExpr = new Expr_NotEquals(param1, param2);
         }
         else if(func instanceof E_LangMatches){
             if(func.getArg2().getConstant().getString().equals("*")){
@@ -239,14 +229,19 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         if(nv.isBoolean()){
             aqlExpr = new Const_Bool(nv.getBoolean());
         }
+        /*else if(nv.isLiteral()){
+            //TODO shouldn't we be transforming it into an object with type and value here?
+            aqlExpr = new Const_String(nv.getString());
+        }*/
+        else if(nv.isIRI()) {
+            //TODO shouldn't we be transforming it into an object with type and value here?
+            aqlExpr = new Const_String(nv.asString());
+        }
         else if(nv.isString()) {
             aqlExpr = new Const_String(nv.getString());
         }
         else if(nv.isNumber()){
             aqlExpr = new Const_Number(nv.getDouble());
-        }
-        else if(nv.isIRI()) {
-            aqlExpr = new Const_String(nv.asString());
         }
         else{
             throw new UnsupportedOperationException("Node value in SPARQL expression not supported!");

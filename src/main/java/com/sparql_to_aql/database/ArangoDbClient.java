@@ -22,7 +22,7 @@ public class ArangoDbClient {
 
     public ArangoCursor<BaseDocument> execQuery(String dbName, String query){
         try {
-            return arangoDbConnection.db().query(query, null, null,
+            return arangoDbConnection.db(dbName).query(query, null, null,
                     BaseDocument.class);
         }
         catch (final ArangoDBException e){

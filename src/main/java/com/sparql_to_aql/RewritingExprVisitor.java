@@ -131,7 +131,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
                 aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE))));
                 aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
                 aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
-                
+
                 if(func instanceof E_NotEquals)
                     aqlExpr = new Expr_LogicalNot(aqlExpr);
             }
@@ -230,11 +230,11 @@ public class RewritingExprVisitor extends ExprVisitorBase {
             aqlExpr = new Const_Bool(nv.getBoolean());
         }
         /*else if(nv.isLiteral()){
-            //TODO shouldn't we be transforming it into an object with type and value here?
+            //TODO we should transform it into an object with type and value here
             aqlExpr = new Const_String(nv.getString());
         }*/
         else if(nv.isIRI()) {
-            //TODO shouldn't we be transforming it into an object with type and value here?
+            //TODO we should transform it into an object with type and value here
             aqlExpr = new Const_String(nv.asString());
         }
         else if(nv.isString()) {

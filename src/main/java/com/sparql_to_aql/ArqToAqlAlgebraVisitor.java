@@ -146,7 +146,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
             //add .value over sort variable, since we want the actual value to be sorted (_id, _key, _rev, type properties will otherwise change the sort order)
             //TODO using .value causing ArangoDB exception to break - we might have to use assignments to cater for this or just sort by the whole object for now since this issue has to be reported to ArangoDB
             /*if(aqlSortExpr instanceof com.aql.algebra.expressions.ExprVar){
-                //TODO we might need to sort the type attribute too..
+                //TODO we should sort the type attribute too..
                 aqlSortExpr = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(aqlSortExpr.getVarName(), ArangoAttributes.VALUE));
               }*/
 

@@ -31,10 +31,8 @@ import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public class Main {
 
@@ -69,6 +67,8 @@ public class Main {
             String resultDataDirectoryName = "query_results/" + data_model.toString();
             new File(resultDataDirectoryName).mkdirs();
 
+            String transformedQueryDirectoryName = "transformed_queries/" + data_model.toString();
+            new File(transformedQueryDirectoryName).mkdirs();
             String formattedDate = DATE_FORMAT.format(new Date());
             //add results of multiple queries to the same results file (one row for each query, make first column the query file name)
             FileWriter csvWriter = new FileWriter(directoryName + "/" + formattedDate + ".csv");
@@ -92,6 +92,7 @@ public class Main {
 
                     String aqlQuery = SparqlQueryToAqlQuery(query, data_model);
                     System.out.println(aqlQuery);
+                    SaveAqlQueryToFile(transformedQueryDirectoryName, f.getName(), aqlQuery);
 
                     ArangoDbClient arangoDbClient = new ArangoDbClient();
                     String resultDataFileName = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + ".csv";
@@ -192,8 +193,6 @@ public class Main {
         aqlQueryExpression.visit(aqlAlgebraWriter);
         aqlAlgebraWriter.finishVisit();
 
-        //TODO save the AQL query to file
-        System.out.println(outputStream.toString());
         outputStream.close();
 
         //Use AQL query serializer to get actual AQL query
@@ -270,5 +269,13 @@ public class Main {
 
         //print data results to file
         SparqlUtils.printSparqlQueryResultsToFile(results, resultDataFileName);
+    }
+
+    private static void SaveAqlQueryToFile(String directoryName, String fileName, String aqlQuery) throws IOException{
+        FileWriter queryWriter = new FileWriter(directoryName + "/" + fileName);
+
+        queryWriter.append(aqlQuery);
+        queryWriter.flush();
+        queryWriter.close();
     }
 }

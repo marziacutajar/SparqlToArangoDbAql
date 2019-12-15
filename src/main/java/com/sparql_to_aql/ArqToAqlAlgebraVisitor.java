@@ -145,9 +145,10 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
             //add .value over sort variable, since we want the actual value to be sorted (_id, _key, _rev, type properties will otherwise change the sort order)
             //TODO using .value causing ArangoDB exception to break - we might have to use assignments to cater for this or just sort by the whole object for now since this issue has to be reported to ArangoDB
-            // TODO we might need to sort the type attribute too..
-            /*if(aqlSortExpr instanceof com.aql.algebra.expressions.ExprVar)
-                aqlSortExpr = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(aqlSortExpr.getVarName(), ArangoAttributes.VALUE));*/
+            /*if(aqlSortExpr instanceof com.aql.algebra.expressions.ExprVar){
+                //TODO we might need to sort the type attribute too..
+                aqlSortExpr = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(aqlSortExpr.getVarName(), ArangoAttributes.VALUE));
+              }*/
 
             aqlSortConds.add(new com.aql.algebra.SortCondition(aqlSortExpr, direction));
         }
@@ -478,6 +479,18 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         boundSparqlVariablesByOp.setSparqlVariablesByOp(opTable, boundVars);
     }
 
+    protected void AddNamedGraphFilters(String forLoopVarName, ExprList filterConditions){
+        if(namedGraphNames.isEmpty()){
+            //TODO what if there are no named graphs defined in FROM NAMED??? in that case the inner graph pattern should return nothing no??
+            // or we should consider only triples that are within any named graph.. ie. graph attribute not null or empty
+        }
+
+        AddGraphFilters(namedGraphNames, forLoopVarName, filterConditions);
+    }
+
+    protected void AddDefaultGraphFilters(String forLoopVarName, ExprList filterConditions){
+        AddGraphFilters(defaultGraphNames, forLoopVarName, filterConditions);
+    }
     /**
      * This method takes a list of graphs specified in FROM clauses OR a list of graphs specified in FROM NAMED clauses
      * and adds filters on the current for loop to make sure only triples in these graphs are considered
@@ -489,7 +502,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         com.aql.algebra.expressions.Expr filterExpr = null;
 
         //add filters for default or named graphs
-        //TODO consider using IN function to shorten the filter expr
+        //TODO consider using POSITION function instead to shorten the filter expr
         for(String g: graphNames){
             com.aql.algebra.expressions.Expr currExpr = new Expr_Equals(new ExprVar(AqlUtils.buildVar(forLoopVarName, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE)), new Const_String(g));
 

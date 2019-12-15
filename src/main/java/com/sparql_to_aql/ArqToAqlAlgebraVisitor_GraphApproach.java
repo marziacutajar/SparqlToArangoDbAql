@@ -77,9 +77,7 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
             // one option is to keep a list of graphs in the ArangoDB document of each resource, to know in which named graphs it is used
             // then if we have default or named graphs, we use a let assignment to hold all documents having one of the named graphs in their list, and another let assignment for the default graphs...
             // maybe do the same for the edges..
-            if(defaultGraphNames.size() > 0){
-                AddGraphFilters(defaultGraphNames, AqlUtils.buildVar(iterationPathVar, "edges[0]"), filterConditions);
-            }
+            AddDefaultGraphFilters(AqlUtils.buildVar(iterationPathVar, "edges[0]"), filterConditions);
 
             RewritingUtils.ProcessTripleNode(triple.getPredicate(), AqlUtils.buildVar(iterationPathVar, "edges[0]", ArangoAttributes.PREDICATE), filterConditions, usedVars, false);
             RewritingUtils.ProcessTripleNode(triple.getObject(), AqlUtils.buildVar(iterationPathVar, "vertices[1]"), filterConditions, usedVars, true);
@@ -142,14 +140,13 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
 
             AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, GraphIterationResource.TraversalDirection.OUTBOUND, List.of(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
 
-            //TODO test below to make sure it works... same with BGP part - I'm not sure if the filters are correct cause of the edge doc attribute
+            //TODO test below to make sure it works... I'm not sure if the filters are correct cause of the edge doc attribute
             //if this is the first for loop and there are named graphs specified, add filters for those named graphs
             if(firstTripleBeingProcessed){
                 outerGraphVarToMatch = AqlUtils.buildVar(iterationEdgeVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);
 
-                //TODO what if there are no named graphs defined in FROM NAMED??? in that case the inner graph pattern should return nothing no??
                 if(graphNode.isVariable()){
-                    AddGraphFilters(namedGraphNames, AqlUtils.buildVar(iterationPathVar, "edges[0]"), filterConditions);
+                    AddNamedGraphFilters(AqlUtils.buildVar(iterationPathVar, "edges[0]"), filterConditions);
 
                     //bind graph var
                     usedVars.put(graphNode.getName(), new BoundAqlVars(AqlUtils.buildVar(iterationEdgeVar, ArangoAttributes.GRAPH_NAME)));

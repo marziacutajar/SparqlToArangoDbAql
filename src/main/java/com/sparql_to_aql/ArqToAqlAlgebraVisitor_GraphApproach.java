@@ -67,9 +67,9 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
             ExprList filterConditions = new ExprList();
             String iterationVertexVar = graphForLoopVertexVarGenerator.getNew();
             String iterationEdgeVar = graphForLoopEdgeVarGenerator.getNew();
-            String iterationPathVar = graphForLoopPathVarGenerator.getNew();
+            //String iterationPathVar = graphForLoopPathVarGenerator.getNew();
 
-            AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, GraphIterationResource.TraversalDirection.OUTBOUND, List.of(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
+            AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, null, 1, 1, startVertex, GraphIterationResource.TraversalDirection.OUTBOUND, List.of(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
 
             //if there are default graphs specified, filter by those
             //we don't need to check that each triple matched by the BGP is in the same named graph.. since here we're using the default graph so all triples are considered to be in that one graph
@@ -77,10 +77,10 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
             // one option is to keep a list of graphs in the ArangoDB document of each resource, to know in which named graphs it is used
             // then if we have default or named graphs, we use a let assignment to hold all documents having one of the named graphs in their list, and another let assignment for the default graphs...
             // maybe do the same for the edges..
-            AddDefaultGraphFilters(AqlUtils.buildVar(iterationPathVar, "edges[0]"), filterConditions);
+            AddDefaultGraphFilters(iterationEdgeVar, filterConditions);
 
-            RewritingUtils.ProcessTripleNode(triple.getPredicate(), AqlUtils.buildVar(iterationPathVar, "edges[0]", ArangoAttributes.PREDICATE), filterConditions, usedVars, false);
-            RewritingUtils.ProcessTripleNode(triple.getObject(), AqlUtils.buildVar(iterationPathVar, "vertices[1]"), filterConditions, usedVars, true);
+            RewritingUtils.ProcessTripleNode(triple.getPredicate(), AqlUtils.buildVar(iterationEdgeVar, ArangoAttributes.PREDICATE), filterConditions, usedVars, false);
+            RewritingUtils.ProcessTripleNode(triple.getObject(), iterationVertexVar, filterConditions, usedVars, true);
 
             if(filterConditions.size() > 0)
                 aqlNode = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);

@@ -69,8 +69,12 @@ public class RewritingUtils {
         if(node.isVariable()) {
             String var_name = node.getName();
             if(boundVars.containsKey(var_name)){
-                //variable was already bound in another triple, thus add a filter condition to make sure this node will match the value already bound to the variable
-                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(currAqlVarName), boundVars.get(var_name).asExpr()));
+                //add filter conditions to make sure this node will match the value already bound to the variable
+                //compare EACH property of bound var to each property of the other due to the graph model and indices in the document model too
+                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.TYPE))));
+                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.VALUE))));
+                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
+                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
             }
             else {
                 //add variable to list of currently bound variables

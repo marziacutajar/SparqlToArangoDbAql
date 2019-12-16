@@ -143,14 +143,18 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
 
             com.aql.algebra.expressions.Expr aqlSortExpr = RewritingUtils.ProcessExpr(currCond.getExpression(), boundVars, dataModel, forLoopVarGenerator, assignmentVarGenerator, graphForLoopVertexVarGenerator, graphForLoopEdgeVarGenerator, graphForLoopPathVarGenerator);
 
-            //add .value over sort variable, since we want the actual value to be sorted (_id, _key, _rev, type properties will otherwise change the sort order)
-            //TODO using .value causing ArangoDB exception to break - we might have to use assignments to cater for this or just sort by the whole object for now since this issue has to be reported to ArangoDB
-            /*if(aqlSortExpr instanceof com.aql.algebra.expressions.ExprVar){
-                //TODO we should sort the type attribute too..
-                aqlSortExpr = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(aqlSortExpr.getVarName(), ArangoAttributes.VALUE));
-              }*/
-
-            aqlSortConds.add(new com.aql.algebra.SortCondition(aqlSortExpr, direction));
+            if(dataModel == ArangoDataModel.G && aqlSortExpr instanceof com.aql.algebra.expressions.ExprVar){
+                //add .value over sort variable, since we want the actual value to be sorted (_id, _key, _rev properties will otherwise change the sort order)
+                //also do the same to sort by type
+                String varName = aqlSortExpr.getVarName();
+                aqlSortExpr = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(varName, ArangoAttributes.TYPE));
+                aqlSortConds.add(new com.aql.algebra.SortCondition(aqlSortExpr, direction));
+                aqlSortExpr = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(varName, ArangoAttributes.VALUE));
+                aqlSortConds.add(new com.aql.algebra.SortCondition(aqlSortExpr, direction));
+            }
+            else{
+                aqlSortConds.add(new com.aql.algebra.SortCondition(aqlSortExpr, direction));
+            }
         }
 
         OpSort aqlSort = new OpSort(orderSubOp, aqlSortConds);

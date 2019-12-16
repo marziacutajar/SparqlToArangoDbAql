@@ -12,6 +12,11 @@ import com.sparql_to_aql.entities.BoundAqlVars;
 import com.sparql_to_aql.utils.AqlUtils;
 import com.sparql_to_aql.utils.RewritingUtils;
 import com.sparql_to_aql.utils.VariableGenerator;
+import org.apache.jena.datatypes.RDFDatatype;
+import org.apache.jena.datatypes.xsd.XSDDatatype;
+import org.apache.jena.datatypes.xsd.impl.XSDDouble;
+import org.apache.jena.ext.com.google.common.base.Functions;
+import org.apache.jena.sparql.ARQConstants;
 import org.apache.jena.sparql.algebra.OpWalker;
 import org.apache.jena.sparql.expr.*;
 import org.apache.jena.sparql.expr.ExprFunction0;
@@ -19,9 +24,15 @@ import org.apache.jena.sparql.expr.ExprFunction1;
 import org.apache.jena.sparql.expr.ExprFunction2;
 import org.apache.jena.sparql.expr.ExprFunction3;
 import org.apache.jena.sparql.expr.ExprFunctionN;
+import org.apache.jena.sparql.function.FunctionRegistry;
+import org.apache.jena.vocabulary.RDF;
+import org.apache.jena.vocabulary.XSD;
+
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.ToDoubleFunction;
 
 //Expr is just an interface and there are other classes that implement it and represent operators - refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/expr/Expr.html
 public class RewritingExprVisitor extends ExprVisitorBase {
@@ -168,13 +179,28 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     public void visit(ExprFunctionN func){
         int numArgs = func.numArgs();
         int pos = createdAqlExprs.size()-numArgs;
-        com.aql.algebra.expressions.ExprList aqlExprs = new com.aql.algebra.expressions.ExprList();
         if(func instanceof E_StrConcat){
+            com.aql.algebra.expressions.ExprList aqlExprs = new com.aql.algebra.expressions.ExprList();
+
             for(int i=0; i < numArgs; i++){
                 com.aql.algebra.expressions.Expr currParam = createdAqlExprs.remove(pos);
                 aqlExprs.add(updateExprVar(currParam, ArangoAttributes.VALUE));
             }
             createdAqlExprs.add(new Expr_Concat(aqlExprs));
+        }
+        else if (func instanceof E_Function){
+            com.aql.algebra.expressions.Expr currParam = createdAqlExprs.remove(pos);
+            if(func.getFunctionIRI().equals(XSDDatatype.XSDdouble.getURI()) || func.getFunctionIRI().equals(XSDDatatype.XSDint.getURI())){
+                createdAqlExprs.add(new Expr_ToNumber(updateExprVar(currParam, ArangoAttributes.VALUE)));
+            }
+            else if(func.getFunctionIRI().equals(XSDDatatype.XSDboolean.getURI())){
+                createdAqlExprs.add(new Expr_ToString(updateExprVar(currParam, ArangoAttributes.VALUE)));
+            }
+            else if(func.getFunctionIRI().equals(XSDDatatype.XSDstring.toString())){
+                createdAqlExprs.add(new Expr_ToBool(updateExprVar(currParam, ArangoAttributes.VALUE)));
+            }
+            else
+                throw new UnsupportedOperationException("SPARQL expression not supported!");
         }
         else
             throw new UnsupportedOperationException("SPARQL expression not supported!");

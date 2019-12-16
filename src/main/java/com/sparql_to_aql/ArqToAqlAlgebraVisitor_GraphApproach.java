@@ -32,7 +32,6 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
 
     //TODO try to improve runtime
     // try using prune..
-    // try using INBOUND when we know the object but not the subject!!
     // consider using OPTIONS {bfs:true}  in graph traversal.. maybe we can improve performance somehow..
     @Override
     public void visit(OpBGP opBgp){
@@ -40,11 +39,42 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
         Map<String, BoundAqlVars> usedVars = new HashMap<>();
 
         for(Triple triple : opBgp.getPattern()){
-            ExprList subjectFilterConditions = new ExprList();
             Node subject = triple.getSubject();
+            Node object = triple.getObject();
             String startVertex;
-            //if the subject of the triple isn't bound already - we need an extra for loop
-            if(subject.isURI() || (subject.isVariable() && !usedVars.containsKey(subject.getName()))){
+            boolean startVertexIsSubject = true;
+            GraphIterationResource.TraversalDirection graphTraversalDirection = GraphIterationResource.TraversalDirection.OUTBOUND;
+
+            // we want to use an INBOUND graph traversal when we know the object but not the subject
+            if(subject.isVariable() && !usedVars.containsKey(subject.getName()) && (object.isURI() || object.isLiteral() || (object.isVariable() && usedVars.containsKey(object.getName())))){
+                String forloopVar = forLoopVarGenerator.getNew();
+                AqlQueryNode new_forloop;
+                if(object.isLiteral()){
+                    new_forloop = new IterationResource(forloopVar, new ExprVar(ArangoDatabaseSettings.GraphModel.rdfLiteralsCollectionName));
+                }
+                else{
+                    new_forloop = new IterationResource(forloopVar, new ExprVar(ArangoDatabaseSettings.GraphModel.rdfResourcesCollectionName));
+                }
+                ExprList objectFilterConditions = new ExprList();
+                RewritingUtils.ProcessTripleNode(triple.getObject(), forloopVar, objectFilterConditions, usedVars, true);
+                if(objectFilterConditions.size() > 0){
+                    new_forloop = new com.aql.algebra.operators.OpFilter(objectFilterConditions, new_forloop);
+                }
+
+                if(currAqlNode == null)
+                    currAqlNode = new_forloop;
+                else
+                    currAqlNode = new OpNest(currAqlNode, new_forloop);
+
+                startVertex = forloopVar;
+                startVertexIsSubject = false;
+                graphTraversalDirection = GraphIterationResource.TraversalDirection.INBOUND;
+            }
+            else if(subject.isVariable() && usedVars.containsKey(subject.getName())) {
+                startVertex = usedVars.get(subject.getName()).getFirstVarName();
+            }
+            else {
+                ExprList subjectFilterConditions = new ExprList();
                 String forloopVar = forLoopVarGenerator.getNew();
                 AqlQueryNode new_forloop = new IterationResource(forloopVar, new ExprVar(ArangoDatabaseSettings.GraphModel.rdfResourcesCollectionName));
                 RewritingUtils.ProcessTripleNode(triple.getSubject(), forloopVar, subjectFilterConditions, usedVars, false);
@@ -59,9 +89,6 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
 
                 startVertex = forloopVar;
             }
-            else {
-                startVertex = usedVars.get(subject.getName()).getFirstVarName();
-            }
 
             //keep list of FILTER clauses per triple
             ExprList filterConditions = new ExprList();
@@ -69,7 +96,7 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
             String iterationEdgeVar = graphForLoopEdgeVarGenerator.getNew();
             String iterationPathVar = graphForLoopPathVarGenerator.getNew();
 
-            AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, GraphIterationResource.TraversalDirection.OUTBOUND, List.of(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
+            AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, graphTraversalDirection, List.of(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
 
             //if there are default graphs specified, filter by those
             //we don't need to check that each triple matched by the BGP is in the same named graph.. since here we're using the default graph so all triples are considered to be in that one graph
@@ -80,7 +107,13 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
             AddDefaultGraphFilters(AqlUtils.buildVar(iterationPathVar, "edges[0]"), filterConditions);
 
             RewritingUtils.ProcessTripleNode(triple.getPredicate(), AqlUtils.buildVar(iterationPathVar, "edges[0]", ArangoAttributes.PREDICATE), filterConditions, usedVars, false);
-            RewritingUtils.ProcessTripleNode(triple.getObject(), AqlUtils.buildVar(iterationPathVar, "vertices[1]"), filterConditions, usedVars, true);
+
+            if(startVertexIsSubject) {
+                RewritingUtils.ProcessTripleNode(triple.getObject(), AqlUtils.buildVar(iterationPathVar, "vertices[1]"), filterConditions, usedVars, true);
+            }
+            else{
+                RewritingUtils.ProcessTripleNode(triple.getSubject(), AqlUtils.buildVar(iterationPathVar, "vertices[1]"), filterConditions, usedVars, false);
+            }
 
             if(filterConditions.size() > 0)
                 aqlNode = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);

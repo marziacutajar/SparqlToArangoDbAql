@@ -259,7 +259,7 @@ public class AqlAlgebraTreeWriter implements NodeVisitor, ExprVisitor {
     }
 
     public void visit(ExprSubquery expr){
-        //TODO implement
+        expr.getSubquery().visit(this);
     }
 
     public void visit(Constant expr){

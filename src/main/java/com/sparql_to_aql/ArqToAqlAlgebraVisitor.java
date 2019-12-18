@@ -196,8 +196,6 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
         boolean nestLeftWithinRight = false;
 
         //if the VALUES table is on the left side, we nest it within the right side, ie. forloop for VALUES table is ALWAYS the one that's nested - for performance sake
-        //TODO actually does it make sense to nest the VALUES..?? shouldn't it be the other way round ex. if VALUES table is empty then you wouldnt compute a complicated query for nothing
-        // it would only be a problem if the values table is empty.. I believe
         if(opJoin.getLeft() instanceof OpTable) {
             nestLeftWithinRight = true;
         }

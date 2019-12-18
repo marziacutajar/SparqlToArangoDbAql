@@ -183,7 +183,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     //handle function that executes over a graph pattern (E_Exists, E_NotExists)
     @Override
     public void visit(ExprFunctionOp func){
-        //TODO cater for filter in (not) exists query.. we need to pass the boundVariables map to the new visitor..
+        //TODO cater for filter, bind, etc in (not) exists query.. we need to pass the boundVariables map to the new visitor..
         //we need to use an instance of ArqToAqlAlgebra visitor to translate the graph pattern within the FILTER clause
         ArqToAqlAlgebraVisitor subQueryTranslator;
         switch (dataModel){

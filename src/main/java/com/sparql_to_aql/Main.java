@@ -64,17 +64,21 @@ public class Main {
             String directoryName = "runtime_results/" + data_model.toString();
             new File(directoryName).mkdirs();
 
+            String virtuosoRuntimesDirectoryName = "runtime_results/V";
+            new File(virtuosoRuntimesDirectoryName).mkdirs();
+
             String resultDataDirectoryName = "query_results/" + data_model.toString();
             new File(resultDataDirectoryName).mkdirs();
 
             String transformedQueryDirectoryName = "transformed_queries/" + data_model.toString();
             new File(transformedQueryDirectoryName).mkdirs();
+
             String formattedDate = DATE_FORMAT.format(new Date());
             //add results of multiple queries to the same results file (one row for each query, make first column the query file name)
             FileWriter csvWriter = new FileWriter(directoryName + "/" + formattedDate + ".csv");
             csvWriter.append("Query" + ",");
             csvWriter.append(data_model.name() + "\r\n");
-            FileWriter csvWriterVirtuoso = new FileWriter(directoryName + "/" + formattedDate + "_virtuoso" + ".csv");
+            FileWriter csvWriterVirtuoso = new FileWriter(virtuosoRuntimesDirectoryName + "/" + formattedDate + "_virtuoso" + ".csv");
 
             List<File> files = GetFilesFromArgumentPaths(filePaths);
 
@@ -254,7 +258,6 @@ public class Main {
         for (int i = 0; i < queryRuns; i++) {
             Instant start = Instant.now();
             results = vqe.execSelect();
-            //TODO also count how long it takes to "process" the results
 
             Instant finish = Instant.now();
             timeMeasurements.add(Duration.between(start, finish).toNanos() / 1E6);

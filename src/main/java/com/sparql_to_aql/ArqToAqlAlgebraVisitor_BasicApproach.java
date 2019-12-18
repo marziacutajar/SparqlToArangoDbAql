@@ -44,7 +44,7 @@ public class ArqToAqlAlgebraVisitor_BasicApproach extends ArqToAqlAlgebraVisitor
             AqlQueryNode aqlNode = new IterationResource(iterationVar, new ExprVar(ArangoDatabaseSettings.DocumentModel.rdfCollectionName));
 
             //if there are default graphs specified, filter by those
-            //TODO try to find a better performing approach instead of repeating these filter in each for loop
+            //TODO try to find a better performing approach instead of repeating these filters in each for loop
             // a simple way would be to use a LET assignment and store all the ArangoDB documents where graph IN (defaultGraphs)
             // and then iterate over data in that variable instead of over the whole triples collection
             // however this is only a good idea if collection indexes are still used on the data in that variable

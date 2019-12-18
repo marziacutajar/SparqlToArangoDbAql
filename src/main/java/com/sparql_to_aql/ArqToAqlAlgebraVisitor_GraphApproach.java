@@ -30,9 +30,6 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
         super(defaultGraphNames, namedGraphs, ArangoDataModel.G, forLoopVarGen, assignmentVarGen, graphVertexVarGen, graphEdgeVarGen, graphPathVarGen);
     }
 
-    //TODO try to improve runtime
-    // try using prune..
-    // consider using OPTIONS {bfs:true}  in graph traversal.. maybe we can improve performance somehow..
     @Override
     public void visit(OpBGP opBgp){
         AqlQueryNode currAqlNode = null;

@@ -93,7 +93,7 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
             String iterationEdgeVar = graphForLoopEdgeVarGenerator.getNew();
             String iterationPathVar = graphForLoopPathVarGenerator.getNew();
 
-            AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, graphTraversalDirection, List.of(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
+            AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, graphTraversalDirection, Arrays.asList(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
 
             //if there are default graphs specified, filter by those
             //we don't need to check that each triple matched by the BGP is in the same named graph.. since here we're using the default graph so all triples are considered to be in that one graph
@@ -168,7 +168,7 @@ public class ArqToAqlAlgebraVisitor_GraphApproach extends ArqToAqlAlgebraVisitor
             String iterationEdgeVar = graphForLoopEdgeVarGenerator.getNew();
             String iterationPathVar = graphForLoopPathVarGenerator.getNew();
 
-            AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, GraphIterationResource.TraversalDirection.OUTBOUND, List.of(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
+            AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, GraphIterationResource.TraversalDirection.OUTBOUND, Arrays.asList(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
 
             //TODO test below to make sure it works... I'm not sure if the filters are correct cause of the edge doc attribute
             //if this is the first for loop and there are named graphs specified, add filters for those named graphs

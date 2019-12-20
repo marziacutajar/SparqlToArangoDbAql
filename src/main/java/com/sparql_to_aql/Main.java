@@ -5,7 +5,6 @@ import com.aql.algebra.AqlQuerySerializer;
 import com.aql.algebra.AqlAlgebraTreeWriter;
 import com.arangodb.ArangoCursor;
 import com.arangodb.entity.BaseDocument;
-import com.sparql_to_aql.constants.ArangoDatabaseSettings;
 import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.*;
@@ -16,13 +15,11 @@ import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
-import org.apache.jena.sparql.algebra.optimize.TransformFilterPlacement;
 import org.apache.jena.sparql.algebra.optimize.TransformReorder;
 import org.apache.jena.sparql.sse.SSE;
 import virtuoso.jena.driver.VirtGraph;
 import virtuoso.jena.driver.VirtuosoQueryExecution;
 import virtuoso.jena.driver.VirtuosoQueryExecutionFactory;
-
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -95,7 +92,7 @@ public class Main {
                     Query query = QueryFactory.create(sparqlQuery);
 
                     String aqlQuery = SparqlQueryToAqlQuery(query, data_model);
-                    System.out.println(aqlQuery);
+                    //System.out.println(aqlQuery);
                     SaveAqlQueryToFile(transformedQueryDirectoryName, f.getName(), aqlQuery);
 
                     ArangoDbClient arangoDbClient = new ArangoDbClient();
@@ -137,7 +134,7 @@ public class Main {
         Op op = Algebra.compile(query);
 
         //System.out.println("Writing algebra");
-        SSE.write(op);
+        //SSE.write(op);
 
         //below is used to get query back to SPARQL query form - create something similar for changing AQL query expression tree into string form
         //Query queryForm = OpAsQuery.asQuery(op);
@@ -171,7 +168,7 @@ public class Main {
 
         //consider also the below existing transformers (refer to https://jena.apache.org/documentation/javadoc/arq/org/apache/jena/sparql/algebra/optimize/package-summary.html for more)
         //TransformPattern2Join, TransformExtendCombine, TransformFilterEquality, TransformFilterInequality, TransformRemoveAssignment, TransformImplicitLeftJoin, TransformMergeBGPs
-        SSE.write(op);
+        //SSE.write(op);
 
         //get FROM and FROM NAMED uris
         List<String> namedGraphs = query.getNamedGraphURIs(); //get all FROM NAMED uris

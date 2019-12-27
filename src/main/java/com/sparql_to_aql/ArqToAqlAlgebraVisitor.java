@@ -66,7 +66,7 @@ public abstract class ArqToAqlAlgebraVisitor extends RewritingOpVisitorBase {
     protected VariableGenerator graphForLoopPathVarGenerator = new VariableGenerator("g_p");
 
     //TODO consider not storing these by Op, but rather keep an ordered list and we always get them from the end (like with createdAqlNodes)
-    // it would make it simpler to pass boundVars to process FILTER (NOT) EXISTS expressions too..
+    // it would make it simpler to pass boundVars to process FILTER (NOT) EXISTS expressions too
     protected BoundSparqlVariablesByOp boundSparqlVariablesByOp = new BoundSparqlVariablesByOp();
 
     //use linked list - easier to pop out and push items from front or back

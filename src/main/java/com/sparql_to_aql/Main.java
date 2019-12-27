@@ -6,6 +6,7 @@ import com.aql.algebra.AqlAlgebraTreeWriter;
 import com.arangodb.ArangoCursor;
 import com.arangodb.entity.BaseDocument;
 import com.sparql_to_aql.constants.ArangoDataModel;
+import com.sparql_to_aql.constants.Configuration;
 import com.sparql_to_aql.database.ArangoDbClient;
 import com.sparql_to_aql.entities.algebra.transformers.*;
 import com.sparql_to_aql.utils.MathUtils;
@@ -16,7 +17,6 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.query.*;
 import org.apache.jena.sparql.algebra.*;
 import org.apache.jena.sparql.algebra.optimize.TransformReorder;
-import org.apache.jena.sparql.sse.SSE;
 import virtuoso.jena.driver.VirtGraph;
 import virtuoso.jena.driver.VirtuosoQueryExecution;
 import virtuoso.jena.driver.VirtuosoQueryExecutionFactory;
@@ -35,9 +35,9 @@ public class Main {
 
     private static final int queryRuns = 15;
     private static SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmm");
-    //TODO consider removing usage of named graph below somehow...
-    private static VirtGraph db = new VirtGraph("http://localhost:8890/thesis_dataset", "jdbc:virtuoso://localhost:1111", "dba", "dba");
-    //private static VirtGraph db = new VirtGraph(null, "jdbc:virtuoso://localhost:1111", "dba", "dba");
+    //TODO consider removing usage of named graph below...
+    private static VirtGraph db = new VirtGraph(Configuration.GetVirtuosoGraphName(), Configuration.GetVirtuosoUrl(), Configuration.GetVirtuosoUser(), Configuration.GetVirtuosoPassword());
+
     public static void main(String[] args) {
         // create the parser
         CommandLineParser parser = new DefaultParser();
@@ -98,7 +98,7 @@ public class Main {
                     ArangoDbClient arangoDbClient = new ArangoDbClient();
                     String resultDataFileName = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + ".csv";
                     String resultDataFileNameVirtuoso = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + "_virtuoso" + ".csv";
-                    System.out.println("Executing generated AQL query on ArangoDb..");
+                    System.out.println("Executing generated AQL query on ArangoDb...");
 
                     ExecuteAqlQuery(csvWriter, fileName, arangoDbClient, aqlQuery, resultDataFileName);
 
@@ -107,7 +107,7 @@ public class Main {
                     ExecuteSparqlQueryOnVirtuoso(csvWriterVirtuoso, fileName, vqe, resultDataFileNameVirtuoso);
                 }
                 catch (QueryException qe) {
-                    System.out.println("Invalid SPARQL query. ");
+                    System.out.println("Invalid SPARQL query: " + qe);
                 }
                 catch (IOException e) {
                     System.out.println(e);
@@ -146,7 +146,6 @@ public class Main {
         //transformer to use if we're gonna remove REDUCED from a query and just do a normal project
         op = Transformer.transform(new OpReducedTransformer(), op);
 
-        //TODO mention below transformer in thesis - it has a HUGE effect on query runtime
         //transformer to reorder the position of triple patterns in BGPs/Quads to improve runtime
         op = Transformer.transform(new TransformReorder(), op);
 
@@ -231,7 +230,7 @@ public class Main {
         csvWriter.append(fileName + ",");
         for (int i = 0; i < queryRuns; i++) {
             Instant start = Instant.now();
-            results = arangoDbClient.execQuery(ArangoDatabaseSettings.databaseName, aqlQuery);
+            results = arangoDbClient.execQuery(Configuration.GetArangoDatabaseName(), aqlQuery);
             Instant finish = Instant.now();
             //timeMeasurements[i] = TimeUnit.NANOSECONDS.toMicros(Duration.between(start, finish).toNanos());
             timeMeasurements.add(Duration.between(start, finish).toNanos() / 1E6);
@@ -240,6 +239,7 @@ public class Main {
         //remove the two largest and the two smallest run times, then compute average
         double avgRuntime = MathUtils.calculateAverageDouble(timeMeasurements, 2);
         DecimalFormat df = new DecimalFormat("#.##");
+        //new DecimalFormat("##.00")
         csvWriter.append(df.format(avgRuntime));
         csvWriter.append("\r\n");
         csvWriter.flush();

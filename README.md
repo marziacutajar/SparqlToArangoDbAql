@@ -1,16 +1,14 @@
-SPARQL query expression to ArangoDB AQL query translator
+# SPARQL query expression to ArangoDB AQL query translator
 
 This command-line program is a prototype for translating a given SPARQL query expression into an ArangoDB AQL query expression. 
-It is meant for querying RDF data transformed into an ArangoDB-compliant format using the RDF-to-ArangoDB tool that can be found at
-#TODO link to RDF-to-ArangoDB repo here
-The program also runs the produced AQL query on a user-specified ArangoDB database and outputs the results obtained in CSV format.
+It is meant for querying RDF data transformed into an ArangoDB-compliant format using the RDF-to-ArangoDB tool that can be found at https://github.com/Ponsietta/RdfToArangoDBJson. The program also runs the produced AQL query on a user-specified ArangoDB database and outputs the results obtained in CSV format.
 
 The tool also executes the original SPARQL query against a user-specified Virtuoso database and compares the query runtime against that of 
 the AQL query. This has only been done for research purposes and can be deactivated by the user.
 #TODO consider accepting two more parameters - one to specify whether the AQL query should be executed, and one to specify whether we should
 make the comparison to Virtuoso.
 
-- Running the program
+## Running the program
 
 To run the program easily without an IDE, you need to make sure to have the Gradle build tool installed. 
 Refer to https://gradle.org/install/ for download and installation details.

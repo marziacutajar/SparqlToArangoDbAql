@@ -1,11 +1,11 @@
 package com.sparql_to_aql;
 
-import com.aql.algebra.AqlQueryNode;
-import com.aql.algebra.expressions.ExprSubquery;
-import com.aql.algebra.expressions.constants.*;
-import com.aql.algebra.expressions.functions.*;
-import com.aql.algebra.operators.OpProject;
-import com.aql.algebra.operators.OpSequence;
+import com.aql.querytree.AqlQueryNode;
+import com.aql.querytree.expressions.ExprSubquery;
+import com.aql.querytree.expressions.constants.*;
+import com.aql.querytree.expressions.functions.*;
+import com.aql.querytree.operators.OpProject;
+import com.aql.querytree.operators.OpSequence;
 import com.sparql_to_aql.constants.ArangoAttributes;
 import com.sparql_to_aql.constants.ArangoDataModel;
 import com.sparql_to_aql.entities.BoundAqlVars;
@@ -35,17 +35,17 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     protected VariableGenerator graphForLoopEdgeVarGenerator;
     protected VariableGenerator graphForLoopPathVarGenerator;
 
-    private LinkedList<com.aql.algebra.expressions.Expr> createdAqlExprs = new LinkedList<>();
+    private LinkedList<com.aql.querytree.expressions.Expr> createdAqlExprs = new LinkedList<>();
 
-    private List<com.aql.algebra.expressions.Expr> GetCreatedAqlExprsForExpr(int numOfNestedExprs){
+    private List<com.aql.querytree.expressions.Expr> GetCreatedAqlExprsForExpr(int numOfNestedExprs){
         int from = createdAqlExprs.size() - numOfNestedExprs;
         int to = createdAqlExprs.size() - 1;
-        List<com.aql.algebra.expressions.Expr> exprsToReturn = createdAqlExprs.subList(from, to);
+        List<com.aql.querytree.expressions.Expr> exprsToReturn = createdAqlExprs.subList(from, to);
         createdAqlExprs.removeAll(exprsToReturn);
         return exprsToReturn;
     }
 
-    public com.aql.algebra.expressions.Expr getFinalAqlExpr(){
+    public com.aql.querytree.expressions.Expr getFinalAqlExpr(){
         return createdAqlExprs.get(0);
     }
 
@@ -89,13 +89,13 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     //TODO consider improving using enum + switch.. or use visitor pattern on them somehow
     @Override
     public void visit(ExprFunction2 func){
-        com.aql.algebra.expressions.Expr param2 = createdAqlExprs.removeLast();
-        com.aql.algebra.expressions.Expr param1 = createdAqlExprs.removeLast();
+        com.aql.querytree.expressions.Expr param2 = createdAqlExprs.removeLast();
+        com.aql.querytree.expressions.Expr param1 = createdAqlExprs.removeLast();
 
-        com.aql.algebra.expressions.Expr param2_ExprVarWithValueSubAttr = updateExprVar(param2, ArangoAttributes.VALUE);
-        com.aql.algebra.expressions.Expr param1_ExprVarWithValueSubAttr = updateExprVar(param1, ArangoAttributes.VALUE);
+        com.aql.querytree.expressions.Expr param2_ExprVarWithValueSubAttr = updateExprVar(param2, ArangoAttributes.VALUE);
+        com.aql.querytree.expressions.Expr param1_ExprVarWithValueSubAttr = updateExprVar(param1, ArangoAttributes.VALUE);
 
-        com.aql.algebra.expressions.Expr aqlExpr;
+        com.aql.querytree.expressions.Expr aqlExpr;
 
         if(func instanceof E_Add){
             aqlExpr = new Expr_Add(param1_ExprVarWithValueSubAttr, param2_ExprVarWithValueSubAttr);
@@ -120,17 +120,17 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         }else if(func instanceof E_Equals || func instanceof E_NotEquals){
             //TODO what if one of the params is a constant json object ie. represents a document (happens when have a literal or IRI node value)? then we want to compare the whole document to another document ie. don't change the var name
             //if we are comparing a constant value to a variable, we have to use .VALUE attribute, otherwise not..
-            if(param1 instanceof com.aql.algebra.expressions.ExprVar && !(param2 instanceof com.aql.algebra.expressions.ExprVar))
-                param1 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE));
-            else if(param2 instanceof com.aql.algebra.expressions.ExprVar && !(param1 instanceof com.aql.algebra.expressions.ExprVar))
-                param2 = new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE));
+            if(param1 instanceof com.aql.querytree.expressions.ExprVar && !(param2 instanceof com.aql.querytree.expressions.ExprVar))
+                param1 = new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE));
+            else if(param2 instanceof com.aql.querytree.expressions.ExprVar && !(param1 instanceof com.aql.querytree.expressions.ExprVar))
+                param2 = new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE));
 
             //we need to handle things differently for graph approach - we need to add multiple equals filter conds matching the attributes
-            if (dataModel == ArangoDataModel.G && param1 instanceof com.aql.algebra.expressions.ExprVar && param2 instanceof com.aql.algebra.expressions.ExprVar){
-                aqlExpr = new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.TYPE)));
-                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE))));
-                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
-                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
+            if (dataModel == ArangoDataModel.G && param1 instanceof com.aql.querytree.expressions.ExprVar && param2 instanceof com.aql.querytree.expressions.ExprVar){
+                aqlExpr = new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.TYPE)), new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.TYPE)));
+                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE)), new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.VALUE))));
+                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
+                aqlExpr = new Expr_LogicalAnd(aqlExpr, new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param2.getVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
 
                 if(func instanceof E_NotEquals)
                     aqlExpr = new Expr_LogicalNot(aqlExpr);
@@ -168,10 +168,10 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     public void visit(ExprFunctionN func){
         int numArgs = func.numArgs();
         int pos = createdAqlExprs.size()-numArgs;
-        com.aql.algebra.expressions.ExprList aqlExprs = new com.aql.algebra.expressions.ExprList();
+        com.aql.querytree.expressions.ExprList aqlExprs = new com.aql.querytree.expressions.ExprList();
         if(func instanceof E_StrConcat){
             for(int i=0; i < numArgs; i++){
-                com.aql.algebra.expressions.Expr currParam = createdAqlExprs.remove(pos);
+                com.aql.querytree.expressions.Expr currParam = createdAqlExprs.remove(pos);
                 aqlExprs.add(updateExprVar(currParam, ArangoAttributes.VALUE));
             }
             createdAqlExprs.add(new Expr_Concat(aqlExprs));
@@ -184,14 +184,14 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     @Override
     public void visit(ExprFunctionOp func){
         //TODO cater for filter, bind, etc in (not) exists query.. we need to pass the boundVariables map to the new visitor..
-        //we need to use an instance of ArqToAqlAlgebra visitor to translate the graph pattern within the FILTER clause
-        ArqToAqlAlgebraVisitor subQueryTranslator;
+        //we need to use an instance of ArqToAqlTreeVisitor to translate the graph pattern within the FILTER clause
+        ArqToAqlTreeVisitor subQueryTranslator;
         switch (dataModel){
             case D:
-                subQueryTranslator = new ArqToAqlAlgebraVisitor_BasicApproach(null, null, forLoopVarGenerator, assignmentVarGenerator, graphForLoopVertexVarGenerator, graphForLoopEdgeVarGenerator, graphForLoopPathVarGenerator);
+                subQueryTranslator = new ArqToAqlTreeVisitor_BasicApproach(null, null, forLoopVarGenerator, assignmentVarGenerator, graphForLoopVertexVarGenerator, graphForLoopEdgeVarGenerator, graphForLoopPathVarGenerator);
                 break;
             case G:
-                subQueryTranslator = new ArqToAqlAlgebraVisitor_GraphApproach(null, null, forLoopVarGenerator, assignmentVarGenerator, graphForLoopVertexVarGenerator, graphForLoopEdgeVarGenerator, graphForLoopPathVarGenerator);
+                subQueryTranslator = new ArqToAqlTreeVisitor_GraphApproach(null, null, forLoopVarGenerator, assignmentVarGenerator, graphForLoopVertexVarGenerator, graphForLoopEdgeVarGenerator, graphForLoopPathVarGenerator);
                 break;
             default: throw new UnsupportedOperationException("Unsupported data model!");
         }
@@ -200,15 +200,15 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         OpWalker.walk(func.getGraphPattern(), subQueryTranslator);
 
         //get the generated AQL query structure
-        OpSequence aqlQueryExpression = subQueryTranslator.GetAqlAlgebraQueryExpression();
+        OpSequence aqlQueryExpression = subQueryTranslator.GetAqlQueryTree();
 
         AqlQueryNode finalSubQuery = aqlQueryExpression.getElements().remove(aqlQueryExpression.size() - 1);
         Map<String, BoundAqlVars> subQueryBoundVars = subQueryTranslator.GetLastBoundVars();
 
         //add join filter statements over finalSubQuery to match the variables bound outside of the FILTER clause
-        com.aql.algebra.expressions.ExprList filterExprs = RewritingUtils.GetFiltersOnCommonVars(boundVariables, subQueryBoundVars, dataModel);
+        com.aql.querytree.expressions.ExprList filterExprs = RewritingUtils.GetFiltersOnCommonVars(boundVariables, subQueryBoundVars, dataModel);
         if(filterExprs.size() > 0) {
-            finalSubQuery = new com.aql.algebra.operators.OpFilter(filterExprs, finalSubQuery);
+            finalSubQuery = new com.aql.querytree.operators.OpFilter(filterExprs, finalSubQuery);
         }
 
         //It is enough for us to project an empty object below.. we're not binding any variables and we just need to count the objects returned in the end
@@ -224,7 +224,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
     @Override
     public void visit(NodeValue nv){
         //handle different types of values - we're only gonna allow "constants"
-        com.aql.algebra.expressions.Expr aqlExpr;
+        com.aql.querytree.expressions.Expr aqlExpr;
 
         if(nv.isBoolean()){
             aqlExpr = new Const_Bool(nv.getBoolean());
@@ -265,9 +265,9 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         throw new UnsupportedOperationException("SPARQL expression not supported!");
     }
 
-    private com.aql.algebra.expressions.Expr updateExprVar(com.aql.algebra.expressions.Expr expr, String subAttribute){
-        if(expr instanceof com.aql.algebra.expressions.ExprVar)
-            return new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(expr.getVarName(), subAttribute));
+    private com.aql.querytree.expressions.Expr updateExprVar(com.aql.querytree.expressions.Expr expr, String subAttribute){
+        if(expr instanceof com.aql.querytree.expressions.ExprVar)
+            return new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(expr.getVarName(), subAttribute));
 
         return expr;
     }

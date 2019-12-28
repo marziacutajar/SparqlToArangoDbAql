@@ -1,8 +1,8 @@
 package com.sparql_to_aql;
 
-import com.aql.algebra.AqlQueryNode;
-import com.aql.algebra.AqlQuerySerializer;
-import com.aql.algebra.AqlAlgebraTreeWriter;
+import com.aql.querytree.AqlQueryNode;
+import com.aql.querytree.AqlQuerySerializer;
+import com.aql.querytree.AqlQueryTreeWriter;
 import com.arangodb.ArangoCursor;
 import com.arangodb.entity.BaseDocument;
 import com.sparql_to_aql.constants.ArangoDataModel;
@@ -173,25 +173,25 @@ public class Main {
         List<String> namedGraphs = query.getNamedGraphURIs(); //get all FROM NAMED uris
         List<String> defaultGraphUris = query.getGraphURIs(); //get all FROM uris (forming default graph)
 
-        ArqToAqlAlgebraVisitor queryExpressionTranslator;
+        ArqToAqlTreeVisitor queryExpressionTranslator;
 
         switch (dataModel){
             case D:
-                queryExpressionTranslator = new ArqToAqlAlgebraVisitor_BasicApproach(defaultGraphUris, namedGraphs);
+                queryExpressionTranslator = new ArqToAqlTreeVisitor_BasicApproach(defaultGraphUris, namedGraphs);
                 break;
             case G:
-                queryExpressionTranslator = new ArqToAqlAlgebraVisitor_GraphApproach(defaultGraphUris, namedGraphs);
+                queryExpressionTranslator = new ArqToAqlTreeVisitor_GraphApproach(defaultGraphUris, namedGraphs);
                 break;
             default: throw new RuntimeException("Unsupported ArangoDB data model");
         }
 
         OpWalker.walk(op, queryExpressionTranslator);
 
-        AqlQueryNode aqlQueryExpression = queryExpressionTranslator.GetAqlAlgebraQueryExpression();
+        AqlQueryNode aqlQueryExpression = queryExpressionTranslator.GetAqlQueryTree();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        AqlAlgebraTreeWriter aqlAlgebraWriter = new AqlAlgebraTreeWriter(outputStream);
-        aqlQueryExpression.visit(aqlAlgebraWriter);
-        aqlAlgebraWriter.finishVisit();
+        AqlQueryTreeWriter aqlQueryTreeWriter = new AqlQueryTreeWriter(outputStream);
+        aqlQueryExpression.visit(aqlQueryTreeWriter);
+        aqlQueryTreeWriter.finishVisit();
 
         outputStream.close();
 

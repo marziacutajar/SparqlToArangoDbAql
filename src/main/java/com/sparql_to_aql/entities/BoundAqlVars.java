@@ -1,9 +1,9 @@
 package com.sparql_to_aql.entities;
 
-import com.aql.algebra.expressions.Expr;
-import com.aql.algebra.expressions.ExprList;
-import com.aql.algebra.expressions.ExprVar;
-import com.aql.algebra.expressions.functions.Expr_NotNull;
+import com.aql.querytree.expressions.Expr;
+import com.aql.querytree.expressions.ExprList;
+import com.aql.querytree.expressions.ExprVar;
+import com.aql.querytree.expressions.functions.Expr_NotNull;
 import com.sparql_to_aql.utils.AqlUtils;
 import java.util.ArrayList;
 import java.util.List;

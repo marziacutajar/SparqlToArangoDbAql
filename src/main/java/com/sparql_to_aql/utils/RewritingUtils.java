@@ -1,8 +1,8 @@
 package com.sparql_to_aql.utils;
 
-import com.aql.algebra.AqlQueryNode;
-import com.aql.algebra.expressions.constants.*;
-import com.aql.algebra.expressions.functions.*;
+import com.aql.querytree.AqlQueryNode;
+import com.aql.querytree.expressions.constants.*;
+import com.aql.querytree.expressions.functions.*;
 import com.arangodb.ArangoCursor;
 import com.arangodb.entity.BaseDocument;
 import com.sparql_to_aql.RewritingExprVisitor;
@@ -32,7 +32,7 @@ public class RewritingUtils {
      * @param filterConditions list of current forloop filter conditions, to which more conditions can be appended
      * @param boundVars map of all bound SPARQL variables to AQL variables in the current scope
      */
-    public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, BoundAqlVars> boundVars){
+    public static void ProcessTripleNode(Node node, NodeRole role, String forLoopVarName, com.aql.querytree.expressions.ExprList filterConditions, Map<String, BoundAqlVars> boundVars){
         String attributeName;
 
         //since forLoopVarName enumerates some ArangoDB document representing an RDF triple, append the appropriate
@@ -64,17 +64,17 @@ public class RewritingUtils {
      * @param boundVars map of all bound SPARQL variables to AQL variables in the current scope
      * @param isObject boolean value specifying if the node is in the object position in the triple pattern
      */
-    public static void ProcessTripleNode(Node node, String currAqlVarName, com.aql.algebra.expressions.ExprList filterConditions, Map<String, BoundAqlVars> boundVars, boolean isObject){
+    public static void ProcessTripleNode(Node node, String currAqlVarName, com.aql.querytree.expressions.ExprList filterConditions, Map<String, BoundAqlVars> boundVars, boolean isObject){
         //IMP: in ARQ query expression, blank nodes are represented as variables ??0, ??1 etc.. thus no need to check node.isBlank()
         if(node.isVariable()) {
             String var_name = node.getName();
             if(boundVars.containsKey(var_name)){
                 //add filter conditions to make sure this node will match the value already bound to the variable
                 //compare EACH property of bound var to each property of the other due to the graph model and indices in the document model too
-                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.TYPE))));
-                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.VALUE))));
-                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
-                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
+                filterConditions.add(new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.TYPE))));
+                filterConditions.add(new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.VALUE))));
+                filterConditions.add(new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_DATA_TYPE)), new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.LITERAL_DATA_TYPE))));
+                filterConditions.add(new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_LANGUAGE)), new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(boundVars.get(var_name).getFirstVarName(), ArangoAttributes.LITERAL_LANGUAGE))));
             }
             else {
                 //add variable to list of currently bound variables
@@ -84,11 +84,11 @@ public class RewritingUtils {
         else if(node.isURI()){
             if(isObject){
                 //we only apply this if the node is an object, because predicates can only be IRIs anyway, and although subjects can also be blank nodes, they can never have an IRI as their value - thus adding this condition would be futile in these cases
-                filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));
+                filterConditions.add(new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.IRI)));
             }
 
             //only match triples having the specified uri in the position represented by the node
-            filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new Const_String(node.getURI())));
+            filterConditions.add(new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE)), new Const_String(node.getURI())));
         }
         else if(node.isLiteral()){
             ProcessLiteralNode(node, currAqlVarName, filterConditions);
@@ -101,19 +101,19 @@ public class RewritingUtils {
      * @param currAqlVarName AQL variable name representing the node
      * @param filterConditions list of current forloop filter conditions, to which we append more conditions
      */
-    private static void ProcessLiteralNode(Node literal, String currAqlVarName, com.aql.algebra.expressions.ExprList filterConditions){
+    private static void ProcessLiteralNode(Node literal, String currAqlVarName, com.aql.querytree.expressions.ExprList filterConditions){
         //important to compare to data type in Arango object here
-        filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.LITERAL)));
+        filterConditions.add(new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.TYPE)), new Const_String(RdfObjectTypes.LITERAL)));
 
         RDFDatatype datatype = literal.getLiteralDatatype();
-        filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_DATA_TYPE)), new Const_String(datatype.getURI())));
+        filterConditions.add(new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_DATA_TYPE)), new Const_String(datatype.getURI())));
 
         if (datatype instanceof RDFLangString) {
-            filterConditions.add(new Expr_Equals(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_LANGUAGE)), new Const_String(literal.getLiteralLanguage())));
+            filterConditions.add(new Expr_Equals(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.LITERAL_LANGUAGE)), new Const_String(literal.getLiteralLanguage())));
         }
 
         //cast ArangoAttributes.VALUE to string - another option would be to handle different literal data types ie. cast literal value (literal.getLiteralValue()) according to type instead
-        filterConditions.add(new Expr_Equals(new Expr_ToString(new com.aql.algebra.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE))), new Const_String(literal.getLiteralLexicalForm())));
+        filterConditions.add(new Expr_Equals(new Expr_ToString(new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(currAqlVarName, ArangoAttributes.VALUE))), new Const_String(literal.getLiteralLexicalForm())));
     }
 
     /**
@@ -122,7 +122,7 @@ public class RewritingUtils {
      * @param boundVariables map of all bound SPARQL variables to AQL variables in the current scope
      * @return AQL expression
      */
-    public static com.aql.algebra.expressions.Expr ProcessExpr(Expr expr, Map<String, BoundAqlVars> boundVariables, ArangoDataModel dataModel, VariableGenerator forLoopVarGen, VariableGenerator assignmentVarGen, VariableGenerator graphVertexVarGen, VariableGenerator graphEdgeVarGen, VariableGenerator graphPathVarGen){
+    public static com.aql.querytree.expressions.Expr ProcessExpr(Expr expr, Map<String, BoundAqlVars> boundVariables, ArangoDataModel dataModel, VariableGenerator forLoopVarGen, VariableGenerator assignmentVarGen, VariableGenerator graphVertexVarGen, VariableGenerator graphEdgeVarGen, VariableGenerator graphPathVarGen){
         RewritingExprVisitor exprVisitor = new RewritingExprVisitor(boundVariables, dataModel, forLoopVarGen, assignmentVarGen, graphVertexVarGen, graphEdgeVarGen, graphPathVarGen);
         Walker.walk(expr, exprVisitor);
 
@@ -153,12 +153,12 @@ public class RewritingUtils {
         return boundVariables;
     }
 
-    public static com.aql.algebra.expressions.VarExprList CreateCollectVarExprList(List<Var> varsForExprList, Map<String, String> boundVars){
-        com.aql.algebra.expressions.VarExprList varExprList = new com.aql.algebra.expressions.VarExprList();
+    public static com.aql.querytree.expressions.VarExprList CreateCollectVarExprList(List<Var> varsForExprList, Map<String, String> boundVars){
+        com.aql.querytree.expressions.VarExprList varExprList = new com.aql.querytree.expressions.VarExprList();
 
         for(Var v: varsForExprList){
-            com.aql.algebra.expressions.Var aqlProjectVar = com.aql.algebra.expressions.Var.alloc(v.getVarName());
-            com.aql.algebra.expressions.Expr varExpr = new Expr_Equals(new com.aql.algebra.expressions.ExprVar(aqlProjectVar), new com.aql.algebra.expressions.ExprVar(boundVars.get(v.getVarName())));
+            com.aql.querytree.expressions.Var aqlProjectVar = com.aql.querytree.expressions.Var.alloc(v.getVarName());
+            com.aql.querytree.expressions.Expr varExpr = new Expr_Equals(new com.aql.querytree.expressions.ExprVar(aqlProjectVar), new com.aql.querytree.expressions.ExprVar(boundVars.get(v.getVarName())));
             varExprList.add(aqlProjectVar, varExpr);
         }
 
@@ -171,13 +171,13 @@ public class RewritingUtils {
      * @param boundVars map of all bound SPARQL variables to AQL variables in the current scope
      * @return list of projection variable expressions
      */
-    public static com.aql.algebra.expressions.VarExprList CreateProjectionVarExprList(List<Var> varsForExprList, Map<String, BoundAqlVars> boundVars){
-        com.aql.algebra.expressions.VarExprList varExprList = new com.aql.algebra.expressions.VarExprList();
+    public static com.aql.querytree.expressions.VarExprList CreateProjectionVarExprList(List<Var> varsForExprList, Map<String, BoundAqlVars> boundVars){
+        com.aql.querytree.expressions.VarExprList varExprList = new com.aql.querytree.expressions.VarExprList();
 
         for(Var v: varsForExprList){
-            com.aql.algebra.expressions.Var aqlProjectVar = com.aql.algebra.expressions.Var.alloc(v.getVarName());
+            com.aql.querytree.expressions.Var aqlProjectVar = com.aql.querytree.expressions.Var.alloc(v.getVarName());
             BoundAqlVars aqlVarBinding = boundVars.get(v.getVarName());
-            com.aql.algebra.expressions.Expr varExpr;
+            com.aql.querytree.expressions.Expr varExpr;
 
             if(aqlVarBinding == null){
                 varExpr = new Const_Null();
@@ -197,12 +197,12 @@ public class RewritingUtils {
      * @param boundVars map of all bound SPARQL variables to AQL variables in the current scope, all of which need to be projected
      * @return list of projection variable expressions
      */
-    public static com.aql.algebra.expressions.VarExprList CreateProjectionVarExprList(Map<String, BoundAqlVars> boundVars){
-        com.aql.algebra.expressions.VarExprList varExprList = new com.aql.algebra.expressions.VarExprList();
+    public static com.aql.querytree.expressions.VarExprList CreateProjectionVarExprList(Map<String, BoundAqlVars> boundVars){
+        com.aql.querytree.expressions.VarExprList varExprList = new com.aql.querytree.expressions.VarExprList();
 
         for(String v: boundVars.keySet()){
-            com.aql.algebra.expressions.Var aqlProjectVar = com.aql.algebra.expressions.Var.alloc(v);
-            com.aql.algebra.expressions.Expr varExpr = boundVars.get(v).asExpr();
+            com.aql.querytree.expressions.Var aqlProjectVar = com.aql.querytree.expressions.Var.alloc(v);
+            com.aql.querytree.expressions.Expr varExpr = boundVars.get(v).asExpr();
             varExprList.add(aqlProjectVar, varExpr);
         }
 
@@ -216,13 +216,13 @@ public class RewritingUtils {
      * @param rightBoundVars
      * @return
      */
-    public static com.aql.algebra.expressions.ExprList GetFiltersOnCommonVars(Map<String, BoundAqlVars> leftBoundVars, Map<String, BoundAqlVars> rightBoundVars, ArangoDataModel dataModel){
+    public static com.aql.querytree.expressions.ExprList GetFiltersOnCommonVars(Map<String, BoundAqlVars> leftBoundVars, Map<String, BoundAqlVars> rightBoundVars, ArangoDataModel dataModel){
         Set<String> commonVars = MapUtils.GetCommonMapKeys(leftBoundVars, rightBoundVars);
-        com.aql.algebra.expressions.ExprList filtersExprs = new com.aql.algebra.expressions.ExprList();
+        com.aql.querytree.expressions.ExprList filtersExprs = new com.aql.querytree.expressions.ExprList();
         for (String commonVar: commonVars){
-            com.aql.algebra.expressions.Expr leftExpr = leftBoundVars.get(commonVar).asExpr();
-            com.aql.algebra.expressions.Expr rightExpr = rightBoundVars.get(commonVar).asExpr();
-            com.aql.algebra.expressions.Expr filterExpr;
+            com.aql.querytree.expressions.Expr leftExpr = leftBoundVars.get(commonVar).asExpr();
+            com.aql.querytree.expressions.Expr rightExpr = rightBoundVars.get(commonVar).asExpr();
+            com.aql.querytree.expressions.Expr filterExpr;
             if(dataModel == ArangoDataModel.D){
                 filterExpr = new Expr_Equals(leftExpr, rightExpr);
             }
@@ -259,7 +259,7 @@ public class RewritingUtils {
     public static Const_Object ValuesRdfNodeToArangoObject(Node node){
         //consider type of value, and create subproperties TYPE, VALUE, LANG, DATATYPE as necessary...
         //the logic is already in the RDF-TO-ArangoDB converter..
-        Map<String, com.aql.algebra.expressions.Expr> objectProperties = new HashMap<>();
+        Map<String, com.aql.querytree.expressions.Expr> objectProperties = new HashMap<>();
 
         if(node.isURI()){
             objectProperties.put(ArangoAttributes.TYPE, new Const_String(RdfObjectTypes.IRI));
@@ -347,9 +347,9 @@ public class RewritingUtils {
         csvWriter.close();
     }
 
-    public static AqlQueryNode AddFilterConditionsIfPresent(AqlQueryNode aqlNode, com.aql.algebra.expressions.ExprList filterConditions){
+    public static AqlQueryNode AddFilterConditionsIfPresent(AqlQueryNode aqlNode, com.aql.querytree.expressions.ExprList filterConditions){
         if(filterConditions.size() > 0)
-            aqlNode = new com.aql.algebra.operators.OpFilter(filterConditions, aqlNode);
+            aqlNode = new com.aql.querytree.operators.OpFilter(filterConditions, aqlNode);
 
         return aqlNode;
     }

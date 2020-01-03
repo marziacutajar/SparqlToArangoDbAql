@@ -483,7 +483,7 @@ public abstract class ArqToAqlTreeVisitor extends RewritingOpVisitorBase {
 
     protected void AddNamedGraphFilters(String forLoopVarName, ExprList filterConditions){
         if(namedGraphNames.isEmpty()){
-            //TODO what if there are no named graphs defined in FROM NAMED??? in that case the inner graph pattern should return nothing no??
+            //TODO what if there are no named graphs defined in FROM NAMED? in that case the inner graph pattern should return nothing no?
             // or we should consider only triples that are within any named graph.. ie. graph attribute not null or empty
         }
 

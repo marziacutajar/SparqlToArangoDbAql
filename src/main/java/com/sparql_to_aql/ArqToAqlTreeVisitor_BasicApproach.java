@@ -44,10 +44,6 @@ public class ArqToAqlTreeVisitor_BasicApproach extends ArqToAqlTreeVisitor
             AqlQueryNode aqlNode = new IterationResource(iterationVar, new ExprVar(ArangoDatabaseSettings.DocumentModel.rdfCollectionName));
 
             //if there are default graphs specified, filter by those
-            //TODO try to find a better performing approach instead of repeating these filters in each for loop
-            // a simple way would be to use a LET assignment and store all the ArangoDB documents where graph IN (defaultGraphs)
-            // and then iterate over data in that variable instead of over the whole triples collection
-            // however this is only a good idea if collection indexes are still used on the data in that variable
             AddDefaultGraphFilters(iterationVar, filterConditions);
 
             ProcessTripleParts(triple, iterationVar, filterConditions, usedVars);
@@ -84,7 +80,6 @@ public class ArqToAqlTreeVisitor_BasicApproach extends ArqToAqlTreeVisitor
             String iterationVar = forLoopVarGenerator.getNew();
             AqlQueryNode aqlNode = new IterationResource(iterationVar, new ExprVar(ArangoDatabaseSettings.DocumentModel.rdfCollectionName));
 
-            //TODO test below to make sure it works...
             //if this is the first for loop and there are named graphs specified, add filters for those named graphs
             if(firstTripleBeingProcessed){
                 outerGraphVarToMatch = AqlUtils.buildVar(iterationVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);

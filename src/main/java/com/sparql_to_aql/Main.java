@@ -35,7 +35,7 @@ public class Main {
 
     private static final int queryRuns = 15;
     private static SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmm");
-    //TODO consider removing usage of named graph below...
+    //TODO consider removing usage of named graph below
     private static VirtGraph db = new VirtGraph(Configuration.GetVirtuosoGraphName(), Configuration.GetVirtuosoUrl(), Configuration.GetVirtuosoUser(), Configuration.GetVirtuosoPassword());
 
     public static void main(String[] args) {

@@ -97,10 +97,6 @@ public class ArqToAqlTreeVisitor_GraphApproach extends ArqToAqlTreeVisitor {
 
             //if there are default graphs specified, filter by those
             //we don't need to check that each triple matched by the BGP is in the same named graph.. since here we're using the default graph so all triples are considered to be in that one graph
-            //TODO try to find a better performing approach instead of repeating these filter in each graph traversal
-            // one option is to keep a list of graphs in the ArangoDB document of each resource, to know in which named graphs it is used
-            // then if we have default or named graphs, we use a let assignment to hold all documents having one of the named graphs in their list, and another let assignment for the default graphs...
-            // maybe do the same for the edges..
             AddDefaultGraphFilters(AqlUtils.buildVar(iterationPathVar, "edges[0]"), filterConditions);
 
             RewritingUtils.ProcessTripleNode(triple.getPredicate(), AqlUtils.buildVar(iterationPathVar, "edges[0]", ArangoAttributes.PREDICATE), filterConditions, usedVars, false);
@@ -170,7 +166,6 @@ public class ArqToAqlTreeVisitor_GraphApproach extends ArqToAqlTreeVisitor {
 
             AqlQueryNode aqlNode = new GraphIterationResource(iterationVertexVar, iterationEdgeVar, iterationPathVar, 1, 1, startVertex, GraphIterationResource.TraversalDirection.OUTBOUND, Arrays.asList(ArangoDatabaseSettings.GraphModel.rdfEdgeCollectionName));
 
-            //TODO test below to make sure it works... I'm not sure if the filters are correct cause of the edge doc attribute
             //if this is the first for loop and there are named graphs specified, add filters for those named graphs
             if(firstTripleBeingProcessed){
                 outerGraphVarToMatch = AqlUtils.buildVar(iterationEdgeVar, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE);

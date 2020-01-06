@@ -17,8 +17,8 @@ The program can then be built and run with a single command as below:
     gradle run --args="-f=C:\Users\marzia\Documents\SPARQL queries\query1.txt -m=D"
 
 The command-line program expects two input parameters as below:
--f: Path to a text file containing a SPARQL query, or a directory path such that all the text files containing valid SPARQL queries within the directory are processed and transformed
--m: The approach that was used to transform the RDF data using the RDF-to-ArangoDB tool. The value for this parameter must be 'D' if the Document Approach was used, or 'G' if the Graph Approach was used
+- -f: Path to a text file containing a SPARQL query, or a directory path such that all the text files containing valid SPARQL queries within the directory are processed and transformed
+- -m: The approach that was used to transform the RDF data using the RDF-to-ArangoDB tool. The value for this parameter must be 'D' if the Document Approach was used, or 'G' if the Graph Approach was used
 
 Another option is to create a fat JAR file using Gradle by executing the below in command-line:
 

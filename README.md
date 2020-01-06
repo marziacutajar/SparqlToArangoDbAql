@@ -3,7 +3,7 @@
 This command-line program is a prototype implementation for translating a given SPARQL query into an ArangoDB AQL query. 
 It is meant for querying RDF data transformed into an ArangoDB-compliant JSON format using the RDF-to-ArangoDB tool that can be found at https://github.com/Ponsietta/RdfToArangoDBJson, and stored in ArangoDB. 
 
-This tool loads a SPARQL query from a given file, transforms it into an equivalent AQL query, and saves it to file for the user to use as required.
+This tool loads a SPARQL query from a given file, transforms it into an equivalent AQL query, and saves the latter to file for the user to use as required.
 
 The program also runs the produced AQL query on a user-specified ArangoDB database and outputs the data results obtained, as well as the measured query runtime, to CSV file. Moreover, it executes the original SPARQL query against a user-specified Virtuoso database and, also in this case, the data results and measured query runtime is saved to CSV file. This has only been done for performance evaluation, i.e. to compare the performance of ArangoDB against a traditional RDF store. 
 

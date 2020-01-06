@@ -32,6 +32,8 @@ The jar file will be saved to the build\libs directory within the main project d
 
 ## Program Outputs
 
+The program outputs all generated AQL queries to file, as well as the results of query executions.
+
 The tool creates three directories within the main project directory:
 - query_results - CSV files containing AQL query results are saved here
 - transformed_queries - upon transforming a SPARQL query, a text file containing the created AQL query is stored here

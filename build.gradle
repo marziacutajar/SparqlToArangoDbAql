@@ -48,3 +48,14 @@ task runFinalJar(type: JavaExec) {
     classpath += sourceSets.main.runtimeClasspath
     main = 'com.sparql_to_aql.Main'
 }
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes (
+                'Main-Class': 'com.rdfarango.Main'
+        )
+    }
+    baseName = project.name
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}

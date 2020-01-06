@@ -14,7 +14,7 @@ Refer to https://gradle.org/install/ for download and installation details.
 
 The program can then be built and run with a single command as below:
 
-    gradle run --args="-f=C:\Users\marzia\Documents\SPARQL queries\query1.txt -m=D"
+    gradle run --args="-f='C:\Users\marzia\Documents\SPARQL queries\query1.txt' -m=D"
 
 The command-line program expects two input parameters as below:
 - -f: Path to a text file containing a SPARQL query, or a directory path such that all the text files containing valid SPARQL queries within the directory are processed and transformed
@@ -28,7 +28,7 @@ The jar file will be saved to the build\libs directory within the main project d
 
     cd build\libs
 
-    java -jar SPARQL-to-AQL-Transformer.jar -f "C:\Users\marzia\Documents\SPARQL queries\query.txt" -m D
+    java -jar SPARQL-to-AQL-Transformer.jar -f "C:\Users\marzia\Documents\SPARQL queries\query1.txt" -m D
 
 ## Program Outputs
 

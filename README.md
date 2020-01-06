@@ -1,7 +1,7 @@
 # SPARQL query to ArangoDB AQL query translator
 
 This command-line program is a prototype implementation for translating a given SPARQL query into an ArangoDB AQL query. 
-It is meant for querying RDF data transformed into an ArangoDB-compliant JSON format using the RDF-to-ArangoDB tool that can be found at https://github.com/Ponsietta/RdfToArangoDBJson. 
+It is meant for querying RDF data transformed into an ArangoDB-compliant JSON format using the RDF-to-ArangoDB tool that can be found at https://github.com/Ponsietta/RdfToArangoDBJson, and stored in ArangoDB. 
 
 This tool loads a SPARQL query from a given file, transforms it into an equivalent AQL query, and saves it to file for the user to use as required.
 

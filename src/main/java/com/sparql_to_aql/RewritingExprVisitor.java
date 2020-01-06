@@ -117,7 +117,6 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         }else if(func instanceof E_LogicalOr){
             aqlExpr = new Expr_LogicalOr(param1, param2);
         }else if(func instanceof E_Equals || func instanceof E_NotEquals){
-            //TODO what if one of the params is a constant json object ie. represents a document (happens when have a literal or IRI node value)? then we want to compare the whole document to another document ie. don't change the var name
             //if we are comparing a constant value to a variable, we have to use .VALUE attribute, otherwise not..
             if(param1 instanceof com.aql.querytree.expressions.ExprVar && !(param2 instanceof com.aql.querytree.expressions.ExprVar))
                 param1 = new com.aql.querytree.expressions.ExprVar(AqlUtils.buildVar(param1.getVarName(), ArangoAttributes.VALUE));
@@ -227,12 +226,7 @@ public class RewritingExprVisitor extends ExprVisitorBase {
         if(nv.isBoolean()){
             aqlExpr = new Const_Bool(nv.getBoolean());
         }
-        /*else if(nv.isLiteral()){
-            //TODO we should transform it into an object with type and value here
-            aqlExpr = new Const_String(nv.getString());
-        }*/
         else if(nv.isIRI()) {
-            //TODO we should transform it into an object with type and value here
             aqlExpr = new Const_String(nv.asString());
         }
         else if(nv.isString()) {

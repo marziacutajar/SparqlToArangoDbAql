@@ -480,11 +480,6 @@ public abstract class ArqToAqlTreeVisitor extends RewritingOpVisitorBase {
     }
 
     protected void AddNamedGraphFilters(String forLoopVarName, ExprList filterConditions){
-        if(namedGraphNames.isEmpty()){
-            //TODO what if there are no named graphs defined in FROM NAMED? in that case the inner graph pattern should return nothing no?
-            // or we should consider only triples that are within any named graph.. ie. graph attribute not null or empty
-        }
-
         AddGraphFilters(namedGraphNames, forLoopVarName, filterConditions);
     }
 
@@ -502,7 +497,6 @@ public abstract class ArqToAqlTreeVisitor extends RewritingOpVisitorBase {
         com.aql.querytree.expressions.Expr filterExpr = null;
 
         //add filters for default or named graphs
-        //TODO use POSITION function instead to shorten the filter expr
         for(String g: graphNames){
             com.aql.querytree.expressions.Expr currExpr = new Expr_Equals(new ExprVar(AqlUtils.buildVar(forLoopVarName, ArangoAttributes.GRAPH_NAME, ArangoAttributes.VALUE)), new Const_String(g));
 

@@ -35,6 +35,8 @@ public class Main {
 
     private static final int queryRuns = 15;
     private static SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmm");
+    //TODO consider removing usage of named graph below
+    private static VirtGraph db = new VirtGraph(Configuration.GetVirtuosoGraphName(), Configuration.GetVirtuosoUrl(), Configuration.GetVirtuosoUser(), Configuration.GetVirtuosoPassword());
 
     public static void main(String[] args) {
         // create the parser
@@ -45,8 +47,6 @@ public class Main {
         //accept more than one file path so we can translate, run, and measure the running time of multiple queries with one call
         options.addOption(Option.builder("f").longOpt("files").hasArgs().desc("Paths to one or more files containing a SPARQL query").argName("file").required().build());
         options.addOption(Option.builder("m").longOpt("data_model").hasArg().desc("ArangoDB data model being queried; Value must be either 'D' if the document model transformation was used, or 'G' if the graph model transformation was used").argName("data model").required().build());
-        options.addOption(Option.builder("runOnArangoDb").longOpt("runOnArangoDb").desc("If parameter is given, the generated AQL queries will be run against ArangoDB database").argName("run on ArangoDb").build());
-        options.addOption(Option.builder("runOnVirtuoso").longOpt("runOnVirtuoso").desc("If parameter is given, the SPARQL queries will be run against Virtuoso database").argName("run on Virtuoso").build());
 
         //initialise ARQ before making any calls to Jena, otherwise running jar file throws exception
         ARQ.init();
@@ -54,8 +54,6 @@ public class Main {
         try {
             // parse the command line arguments
             CommandLine line = parser.parse(options, args);
-            boolean runOnArangoDB = line.hasOption("runOnArangoDb");
-            boolean runOnVirtuoso = line.hasOption("runOnVirtuoso");
 
             ArangoDataModel data_model = ArangoDataModel.valueOf(line.getOptionValue("m"));
             String[] filePaths = line.getOptionValues("f");
@@ -97,20 +95,16 @@ public class Main {
                     //System.out.println(aqlQuery);
                     SaveAqlQueryToFile(transformedQueryDirectoryName, f.getName(), aqlQuery);
 
-                    if(runOnArangoDB) {
-                        ArangoDbClient arangoDbClient = new ArangoDbClient();
-                        String resultDataFileName = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + ".csv";
-                        System.out.println("Executing generated AQL query on ArangoDb...");
-                        ExecuteAqlQuery(csvWriter, fileName, arangoDbClient, aqlQuery, resultDataFileName);
+                    ArangoDbClient arangoDbClient = new ArangoDbClient();
+                    String resultDataFileName = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + ".csv";
+                    String resultDataFileNameVirtuoso = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + "_virtuoso" + ".csv";
+                    System.out.println("Executing generated AQL query on ArangoDb...");
 
-                        if(runOnVirtuoso){
-                            VirtGraph db = new VirtGraph(Configuration.GetVirtuosoGraphName(), Configuration.GetVirtuosoUrl(), Configuration.GetVirtuosoUser(), Configuration.GetVirtuosoPassword());
-                            System.out.println("Executing SPARQL query on Virtuoso database...");
-                            String resultDataFileNameVirtuoso = resultDataDirectoryName + "/" + fileName + "_" + formattedDate + "_virtuoso" + ".csv";
-                            VirtuosoQueryExecution vqe = VirtuosoQueryExecutionFactory.create(query, db);
-                            ExecuteSparqlQueryOnVirtuoso(csvWriterVirtuoso, fileName, vqe, resultDataFileNameVirtuoso);
-                        }
-                    }
+                    ExecuteAqlQuery(csvWriter, fileName, arangoDbClient, aqlQuery, resultDataFileName);
+
+                    System.out.println("Executing SPARQL query on Virtuoso database...");
+                    VirtuosoQueryExecution vqe = VirtuosoQueryExecutionFactory.create(query, db);
+                    ExecuteSparqlQueryOnVirtuoso(csvWriterVirtuoso, fileName, vqe, resultDataFileNameVirtuoso);
                 }
                 catch (QueryException qe) {
                     System.out.println("Invalid SPARQL query: " + qe);

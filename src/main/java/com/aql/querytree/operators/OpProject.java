@@ -8,6 +8,7 @@ import com.aql.querytree.expressions.Expr;
 import java.util.ArrayList;
 import java.util.List;
 
+//TODO we represent RETURN as an operation over another op but in reality in AQL you can have a return clause by itself... it's the only mandatory operation in a query.. so maybe change it to OpN??
 public class OpProject extends OpModifier {
 
     private List<Expr> exprs = new ArrayList<>();

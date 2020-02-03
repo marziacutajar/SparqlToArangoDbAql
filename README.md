@@ -15,8 +15,7 @@ Please note that currently the tool only supports the SELECT query form of the S
 
 ## Running the program
 
-To run the program easily without an IDE, you need to make sure to have the Gradle build tool installed. 
-Refer to https://gradle.org/install/ for download and installation details.
+To run the program easily without an IDE, you need to make sure to have the Gradle build tool installed. The program has been built and run succesfully with Gradle version 6.0.1, thus newer backward-compatible versions should also work. Refer to https://gradle.org/install/ for download and installation details.
 
 The program can then be built and run with a single command as below:
 

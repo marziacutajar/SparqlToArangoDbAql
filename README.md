@@ -15,12 +15,6 @@ Please note that currently the tool only supports the SELECT query form of the S
 
 ## Running the program
 
-To run the program easily without an IDE, you need to make sure to have the Gradle build tool installed. The program has been built and run succesfully with Gradle version 6.0.1, thus newer backward-compatible versions should also work. Refer to https://gradle.org/install/ for download and installation details.
-
-The program can then be built and run with a single command as below:
-
-    gradle run --args="-f='C:\Users\marzia\Documents\SPARQL queries\query1.txt' -m=D"
-
 The command-line program expects two mandatory input parameters as below:
 - -f <file_directory> : Path to a text file containing a SPARQL query, or a directory path such that all the text files containing valid SPARQL queries within the directory are processed and transformed
 - -m <data_model> : The approach that was used to transform the RDF data using the RDF-to-ArangoDB tool. The value for this parameter must be 'D' if the Basic Approach was used, or 'G' if the Graph Approach was used
@@ -28,6 +22,14 @@ The command-line program expects two mandatory input parameters as below:
 You can also specify the below two optional parameters if desired:
 - -runOnArangoDb : If this argument is present, all generated AQL queries will be executed against the configured ArangoDB database
 - -runOnVirtuoso : If this argument is present, all SPARQL queries will be executed against the configured Virtuoso database
+
+To run the program easily without an IDE, you need to make sure to have the Gradle build tool installed. The program has been built and run succesfully with Gradle version 6.0.1, thus newer backward-compatible versions should also work. Refer to https://gradle.org/install/ for download and installation details.
+
+The program can then be built and run with a single command as below:
+
+    gradle run --args="-f='C:\Users\marzia\Documents\SPARQL queries\query1.txt' -m=D"
+    
+Please note that this command, as well as all others given below, work on a Windows OS. Please modify accordingly if using any other operating system.
 
 Another option is to create a fat JAR file using Gradle by executing the below in command-line:
 

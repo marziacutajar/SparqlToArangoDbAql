@@ -25,7 +25,7 @@ You can also specify the below two optional parameters if desired:
 
 To run the program easily without an IDE, you need to make sure to have the Gradle build tool installed. The program has been built and run succesfully with Gradle version 6.0.1, thus newer backward-compatible versions should also work. Refer to https://gradle.org/install/ for download and installation details.
 
-The program can then be built and run with a single command as below:
+The program can then be built and run with a single command as below, after replacing the file path and data model arguments as required.
 
     gradle run --args="-f='C:\Users\marzia\Documents\SPARQL queries\query1.txt' -m=D"
     

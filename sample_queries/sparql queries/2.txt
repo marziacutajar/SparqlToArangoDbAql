@@ -1,0 +1,36 @@
+PREFIX  bsbm: <http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/>
+PREFIX  rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX  dataFromProducer3: <http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/instances/dataFromProducer3/>
+PREFIX  bsbm-inst: <http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/instances/>
+PREFIX  dc:   <http://purl.org/dc/elements/1.1/>
+
+SELECT  ?label ?comment ?producer ?productFeature ?propertyTextual1 ?propertyTextual2 ?propertyTextual3 ?propertyNumeric1 ?propertyNumeric2 ?propertyTextual4 ?propertyTextual5 ?propertyNumeric4
+WHERE
+  { dataFromProducer3:Product118
+              rdfs:label            ?label ;
+              rdfs:comment          ?comment ;
+              bsbm:producer         ?p .
+    ?p        rdfs:label            ?producer .
+    dataFromProducer3:Product118
+              dc:publisher          ?p ;
+              bsbm:productFeature   ?f .
+    ?f        rdfs:label            ?productFeature .
+    dataFromProducer3:Product118
+              bsbm:productPropertyTextual1  ?propertyTextual1 ;
+              bsbm:productPropertyTextual2  ?propertyTextual2 ;
+              bsbm:productPropertyTextual3  ?propertyTextual3 ;
+              bsbm:productPropertyNumeric1  ?propertyNumeric1 ;
+              bsbm:productPropertyNumeric2  ?propertyNumeric2
+    OPTIONAL
+      { dataFromProducer3:Product118
+                  bsbm:productPropertyTextual4  ?propertyTextual4
+      }
+    OPTIONAL
+      { dataFromProducer3:Product118
+                  bsbm:productPropertyTextual5  ?propertyTextual5
+      }
+    OPTIONAL
+      { dataFromProducer3:Product118
+                  bsbm:productPropertyNumeric4  ?propertyNumeric4
+      }
+  }
